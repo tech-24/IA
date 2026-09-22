@@ -13,7 +13,6 @@
   <header>
     <h1>التعاميم</h1>
     <div class="user-info">
-      <button id="logoutBtn" class="secondary">خروج</button>
     </div>
   </header>
 
@@ -110,7 +109,6 @@
     // ==================================================================
     (async () => {
       await requireAuth(); // أي مستخدم مسجل دخول (زائر أو مشرف)
-      document.getElementById("logoutBtn").addEventListener("click", logout);
       await loadCirculars();
       updateCircularsNavDot();
     })();

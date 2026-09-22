@@ -14,7 +14,6 @@
     <h1>إدارة التعاميم</h1>
     <div class="user-info">
       <button id="backAdminBtn" class="secondary">الرئيسية</button>
-      <button id="logoutBtn" class="secondary">خروج</button>
     </div>
   </header>
 
@@ -172,7 +171,6 @@
       document.getElementById("backAdminBtn").addEventListener("click", () => {
         window.location.href = "admin.html";
       });
-      document.getElementById("logoutBtn").addEventListener("click", logout);
       await loadCirculars();
     })();
   </script>

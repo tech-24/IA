@@ -184,9 +184,9 @@
         });
         row.appendChild(editBtn);
 
-        // الضغط على الصف نفسه (بخطوة لاحقة) بيفتح حالات هذا البند
+        // الضغط على الصف نفسه ينقل لصفحة حالات هذا البند
         row.addEventListener("click", () => {
-          alert(`بند "${item.name}" — شاشة الحالات بتُضاف بالخطوة الجاية`);
+          window.location.href = `cases.html?item_id=${item.id}`;
         });
 
         itemsListEl.appendChild(row);

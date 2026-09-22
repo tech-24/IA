@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الحالات — مساعد المفتش</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1>حالات البند</h1>
+    <div class="user-info">
+      <button id="backListsBtn" class="secondary">رجوع للقوائم</button>
+      <button id="logoutBtn" class="secondary">خروج</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="breadcrumb">البند</div>
+    <h2 id="itemTitle">جارٍ التحميل...</h2>
+
+    <div class="categories-grid" id="casesGrid" style="margin-top:20px"></div>
+  </div>
+
+  <!-- ==================== نافذة إضافة/تعديل حالة ====================
+       أول ضغطة "حفظ" تنشئ الحالة وتفتح قسم الصور بنفس النافذة
+       (لازم تنشئ الحالة أولًا قبل ما تقدر ترفع لها صور) ===================== -->
+  <div class="modal-overlay" id="caseModal" style="display:none">
+    <div class="modal-box">
+      <h3 id="caseModalTitle">إضافة حالة جديدة</h3>
+
+      <div class="field">
+        <label for="caseName">اسم الحالة</label>
+        <input type="text" id="caseName" placeholder="مثال: نظافة ممتازة" />
+      </div>
+
+      <div class="field">
+        <label for="caseMethod">شرح طريقة الرصد الصحيحة</label>
+        <textarea id="caseMethod" placeholder="اكتب هنا وش يلاحظه المفتش عشان يحدد هذي الحالة..."></textarea>
+      </div>
+
+      <!-- قسم الصور — يظهر فقط بعد إنشاء الحالة (أول ضغطة حفظ) -->
+      <div id="imagesSection" style="display:none">
+        <label style="font-size:13px;color:var(--text-muted);font-weight:600;display:block;margin-bottom:8px">
+          الصور (حتى 3)
+        </label>
+        <div class="case-images-row" id="caseImagesRow"></div>
+        <input type="file" id="caseImageInput" accept="image/*" style="display:none" />
+      </div>
+
+      <div class="error" id="caseModalError"></div>
+
+      <div class="modal-actions">
+        <button id="saveCaseBtn">حفظ</button>
+        <button class="secondary" id="closeCaseBtn">إغلاق</button>
+      </div>
+
+      <!-- زر الحذف يظهر فقط بعد إنشاء الحالة -->
+      <div class="center" style="margin-top:10px">
+        <button class="link-btn" id="deleteCaseBtn" style="display:none;color:#b91c1c">حذف هذي الحالة</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ترتيب التحميل: config.js ثم auth.js ثم items.js/cases.js -->
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="items.js"></script>
+  <script src="cases.js"></script>
+  <script>
+    // ==================================================================
+    // قراءة رقم البند من رابط الصفحة (?item_id=...)
+    // ==================================================================
+    const urlParams = new URLSearchParams(window.location.search);
+    const itemId = urlParams.get("item_id");
+
+    let allCases = [];      // كل حالات هذا البند (نسخة محلية)
+    let editingCaseId = null; // null = وضع إضافة، غير null = الحالة المفتوحة بالنافذة
+
+    const grid = document.getElementById("casesGrid");
+
+    // -------------------------------------------------
+    // رسم شبكة الحالات من النسخة المحلية
+    // -------------------------------------------------
+    function renderCases() {
+      grid.innerHTML = "";
+
+      allCases.forEach((c) => {
+        const card = document.createElement("div");
+        card.className = "case-card";
+        card.addEventListener("click", () => openEditCaseModal(c));
+
+        const thumb = document.createElement("div");
+        thumb.className = "case-thumb";
+        const firstImage = c.case_images && c.case_images[0];
+        if (firstImage) {
+          thumb.innerHTML = `<img src="${firstImage.image_url}" alt="${c.name}" />`;
+        } else {
+          thumb.innerHTML = `<span class="icon-text">❔</span>`;
+        }
+
+        const title = document.createElement("div");
+        title.className = "case-title";
+        title.textContent = c.name;
+
+        card.appendChild(thumb);
+        card.appendChild(title);
+        grid.appendChild(card);
+      });
+
+      const addCard = document.createElement("div");
+      addCard.className = "add-category-card";
+      addCard.textContent = "+ إضافة حالة";
+      addCard.addEventListener("click", openAddCaseModal);
+      grid.appendChild(addCard);
+    }
+
+    async function loadCases() {
+      allCases = await fetchCases(itemId);
+      renderCases();
+    }
+
+    // ==================================================================
+    // نافذة إضافة/تعديل حالة
+    // ==================================================================
+    const caseModal = document.getElementById("caseModal");
+    const caseModalTitle = document.getElementById("caseModalTitle");
+    const caseModalError = document.getElementById("caseModalError");
+    const imagesSection = document.getElementById("imagesSection");
+    const caseImagesRow = document.getElementById("caseImagesRow");
+    const caseImageInput = document.getElementById("caseImageInput");
+    const deleteCaseBtn = document.getElementById("deleteCaseBtn");
+
+    function openAddCaseModal() {
+      editingCaseId = null;
+      caseModalTitle.textContent = "إضافة حالة جديدة";
+      document.getElementById("caseName").value = "";
+      document.getElementById("caseMethod").value = "";
+      caseModalError.textContent = "";
+      imagesSection.style.display = "none"; // ما فيه حالة بعد، ما نقدر نرفع صور
+      deleteCaseBtn.style.display = "none";
+      caseModal.style.display = "flex";
+    }
+
+    function openEditCaseModal(c) {
+      editingCaseId = c.id;
+      caseModalTitle.textContent = "تعديل الحالة";
+      document.getElementById("caseName").value = c.name;
+      document.getElementById("caseMethod").value = c.monitoring_method || "";
+      caseModalError.textContent = "";
+      imagesSection.style.display = "block";
+      renderImagesRow();
+      deleteCaseBtn.style.display = "inline-block";
+      caseModal.style.display = "flex";
+    }
+
+    // -------------------------------------------------
+    // رسم صف مربعات الصور للحالة الحالية (من النسخة المحلية allCases)
+    // -------------------------------------------------
+    function renderImagesRow() {
+      const current = allCases.find((c) => c.id === editingCaseId);
+      const images = (current && current.case_images) || [];
+
+      caseImagesRow.innerHTML = "";
+
+      images.forEach((img) => {
+        const slot = document.createElement("div");
+        slot.className = "case-image-slot";
+        slot.innerHTML = `
+          <img src="${img.image_url}" alt="" />
+          <button class="case-image-remove" type="button">×</button>
+        `;
+        slot.querySelector(".case-image-remove").addEventListener("click", async () => {
+          await deleteCaseImage(img.id);
+          current.case_images = current.case_images.filter((i) => i.id !== img.id);
+          renderImagesRow();
+          renderCases(); // تحديث الصورة المصغّرة بالشبكة لو كانت هي أول صورة
+        });
+        caseImagesRow.appendChild(slot);
+      });
+
+      // زر إضافة صورة يظهر فقط لو عدد الصور أقل من 3
+      if (images.length < 3) {
+        const addSlot = document.createElement("div");
+        addSlot.className = "add-image-slot";
+        addSlot.textContent = "+";
+        addSlot.addEventListener("click", () => caseImageInput.click());
+        caseImagesRow.appendChild(addSlot);
+      }
+    }
+
+    // اختيار صورة من الجهاز يرفعها مباشرة ويحفظها بالحالة الحالية
+    caseImageInput.addEventListener("change", async () => {
+      const file = caseImageInput.files[0];
+      caseImageInput.value = ""; // نصفّي القيمة عشان يقدر يختار نفس الملف مرة ثانية لو احتاج
+      if (!file || !editingCaseId) return;
+
+      const current = allCases.find((c) => c.id === editingCaseId);
+      const nextOrder = (current.case_images || []).length;
+
+      try {
+        const newImage = await addCaseImage({ case_id: editingCaseId, file, sort_order: nextOrder });
+        current.case_images = [...(current.case_images || []), newImage];
+        renderImagesRow();
+        renderCases();
+      } catch (e) {
+        caseModalError.textContent = e.message || "تعذر رفع الصورة";
+      }
+    });
+
+    document.getElementById("closeCaseBtn").addEventListener("click", () => {
+      caseModal.style.display = "none";
+    });
+
+    // -------------------------------------------------
+    // حفظ (إنشاء الحالة أول مرة، أو تحديث اسمها/شرحها لاحقًا)
+    // أول ضغطة "حفظ" تنشئ الحالة وتفتح قسم الصور بنفس النافذة مباشرة
+    // -------------------------------------------------
+    document.getElementById("saveCaseBtn").addEventListener("click", async () => {
+      const name = document.getElementById("caseName").value.trim();
+      const monitoring_method = document.getElementById("caseMethod").value.trim();
+      if (!name) {
+        caseModalError.textContent = "اكتب اسم الحالة";
+        return;
+      }
+
+      const saveBtn = document.getElementById("saveCaseBtn");
+      saveBtn.disabled = true; // يمنع تكرار الضغط والتسبب بإضافة الحالة أكثر من مرة
+      try {
+        if (editingCaseId) {
+          const updated = await updateCase(editingCaseId, { name, monitoring_method });
+          const index = allCases.findIndex((c) => c.id === editingCaseId);
+          allCases[index] = { ...updated, case_images: allCases[index].case_images };
+        } else {
+          const created = await addCase({ item_id: itemId, name, monitoring_method });
+          allCases.push(created);
+          editingCaseId = created.id;
+          // نفتح قسم الصور فورًا بنفس النافذة بعد إنشاء الحالة
+          imagesSection.style.display = "block";
+          renderImagesRow();
+          deleteCaseBtn.style.display = "inline-block";
+          caseModalTitle.textContent = "تعديل الحالة";
+        }
+        caseModalError.textContent = "";
+        renderCases();
+      } catch (e) {
+        caseModalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+
+    deleteCaseBtn.addEventListener("click", async () => {
+      const confirmed = confirm("هل أنت متأكد من حذف هذي الحالة وكل صورها؟");
+      if (!confirmed) return;
+      await deleteCase(editingCaseId);
+      allCases = allCases.filter((c) => c.id !== editingCaseId);
+      caseModal.style.display = "none";
+      renderCases();
+    });
+
+    // ==================================================================
+    // تشغيل الصفحة: التحقق من صلاحية المشرف، ثم تحميل اسم البند والحالات
+    // ==================================================================
+    (async () => {
+      await requireAuth({ adminOnly: true });
+
+      if (!itemId) {
+        document.getElementById("itemTitle").textContent = "لم يتم تحديد بند";
+        return;
+      }
+
+      const item = await fetchItemById(itemId);
+      document.getElementById("itemTitle").textContent = item.name;
+
+      document.getElementById("backListsBtn").addEventListener("click", () => {
+        window.history.back();
+      });
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+
+      await loadCases();
+    })();
+  </script>
+</body>
+</html>

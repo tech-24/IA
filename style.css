@@ -334,3 +334,85 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 .add-item-btn:hover { background: var(--primary-light); }
 
 .empty-hint { color: var(--text-muted); font-size: 14px; padding: 20px 0; text-align: center; }
+
+/* ================================================================
+   قسم الحالات وصورها — يُستخدم في cases.html
+   ================================================================ */
+
+/* بطاقة الحالة بشبكة الحالات (نفس فكرة مربع القسم) */
+.case-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.case-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.case-card .case-thumb {
+  width: 100%;
+  height: 110px;
+  background: var(--primary-lighter);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.case-card .case-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.case-card .case-thumb .icon-text { font-size: 40px; }
+.case-card .case-title { padding: 10px 12px; font-weight: 700; font-size: 14px; text-align: center; }
+
+/* صف مربعات صور الحالة داخل نافذة التعديل — حتى 3 مربعات جنب بعض */
+.case-images-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+
+.case-image-slot {
+  width: 84px; height: 84px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+  background: var(--primary-lighter);
+  border: 1px solid var(--border);
+}
+.case-image-slot img { width: 100%; height: 100%; object-fit: cover; }
+
+.case-image-remove {
+  position: absolute; top: 4px; left: 4px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #fff;
+  border-radius: 50%;
+  width: 22px; height: 22px;
+  font-size: 13px;
+  line-height: 22px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+}
+.case-image-remove:hover { background: rgba(220, 38, 38, 0.85); }
+
+.add-image-slot {
+  width: 84px; height: 84px;
+  border: 2px dashed #b9cfe6;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--primary);
+  font-size: 26px;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+}
+.add-image-slot:hover { background: var(--primary-light); }
+
+.field textarea {
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-family: inherit;
+  background: #fbfcfe;
+  resize: vertical;
+  min-height: 80px;
+}
+.field textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(51, 121, 189, 0.15);
+}

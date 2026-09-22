@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>التعاميم — مساعد المفتش</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1>التعاميم</h1>
+    <div class="user-info">
+      <button id="logoutBtn" class="secondary">خروج</button>
+    </div>
+  </header>
+
+  <div class="main" style="padding-bottom:8px">
+    <div id="circularsList"></div>
+  </div>
+  <div class="bottom-nav-spacer"></div>
+
+  <!-- ==================== الشريط السفلي ==================== -->
+  <nav class="bottom-nav">
+    <a href="index.html"><span class="nav-icon">📋</span>البنود</a>
+    <a href="circulars.html" class="active"><span class="nav-icon">📢</span>تعاميم</a>
+    <a href="tools.html"><span class="nav-icon">🛠️</span>أدوات مساعدة</a>
+  </nav>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="circulars.js"></script>
+  <script>
+    let allCirculars = [];
+    let myReadIds = [];
+
+    const circularsList = document.getElementById("circularsList");
+
+    function formatDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+    }
+
+    // -------------------------------------------------
+    // رسم قائمة التعاميم: غير المقروء بخط أعرض + نقطة حمراء، ونص مطوي سطرين
+    // الضغط على أي تعميم يوسّعه لعرض النص كامل ويسجّله كمقروء
+    // -------------------------------------------------
+    function renderCirculars() {
+      circularsList.innerHTML = "";
+
+      if (allCirculars.length === 0) {
+        circularsList.innerHTML = '<div class="empty-hint">لا توجد تعاميم حاليًا.</div>';
+        return;
+      }
+
+      allCirculars.forEach((c) => {
+        const isUnread = !myReadIds.includes(c.id);
+
+        const card = document.createElement("div");
+        card.className = "circular-card" + (isUnread ? " unread" : "");
+
+        card.innerHTML = `
+          <div class="circular-title-row">
+            ${isUnread ? '<span class="circular-unread-dot"></span>' : ""}
+            <span class="circular-title">${c.title}</span>
+          </div>
+          <div class="circular-date">${formatDate(c.created_at)}</div>
+          <div class="circular-content collapsed">${c.content}</div>
+          <div class="circular-more">اضغط لعرض المزيد...</div>
+        `;
+
+        let expanded = false;
+        card.addEventListener("click", async () => {
+          expanded = !expanded;
+          const contentEl = card.querySelector(".circular-content");
+          const moreEl = card.querySelector(".circular-more");
+          contentEl.classList.toggle("collapsed", !expanded);
+          moreEl.textContent = expanded ? "إخفاء" : "اضغط لعرض المزيد...";
+
+          // أول ما يفتحه المفتش، نسجّله مقروء (upsert آمن حتى لو تكرر الضغط)
+          if (isUnread && !myReadIds.includes(c.id)) {
+            myReadIds.push(c.id);
+            card.classList.remove("unread");
+            const dot = card.querySelector(".circular-unread-dot");
+            if (dot) dot.remove();
+            try {
+              await markCircularRead(c.id);
+            } catch (e) {
+              // فشل تسجيل القراءة ما يوقف تجربة المستخدم، بس نتجاهله بصمت
+            }
+          }
+        });
+
+        circularsList.appendChild(card);
+      });
+    }
+
+    async function loadCirculars() {
+      allCirculars = await fetchCirculars();
+      myReadIds = await fetchMyReadCircularIds();
+      renderCirculars();
+    }
+
+    // ==================================================================
+    // تشغيل الصفحة
+    // ==================================================================
+    (async () => {
+      await requireAuth(); // أي مستخدم مسجل دخول (زائر أو مشرف)
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+      await loadCirculars();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إدارة التعاميم — مساعد المفتش</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1>إدارة التعاميم</h1>
+    <div class="user-info">
+      <button id="backAdminBtn" class="secondary">لوحة الأقسام</button>
+      <button id="logoutBtn" class="secondary">خروج</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div id="circularsList"></div>
+    <div class="add-item-btn" id="addCircularBtn">+ إضافة تعميم جديد</div>
+  </div>
+
+  <!-- ==================== نافذة إضافة/تعديل تعميم ==================== -->
+  <div class="modal-overlay" id="circularModal" style="display:none">
+    <div class="modal-box">
+      <h3 id="circularModalTitle">إضافة تعميم جديد</h3>
+
+      <div class="field">
+        <label for="circularTitleInput">عنوان التعميم</label>
+        <input type="text" id="circularTitleInput" />
+      </div>
+
+      <div class="field">
+        <label for="circularContentInput">نص التعميم</label>
+        <textarea id="circularContentInput" style="min-height:140px"></textarea>
+      </div>
+
+      <div class="error" id="circularModalError"></div>
+
+      <div class="modal-actions">
+        <button id="saveCircularBtn">حفظ</button>
+        <button class="secondary" id="cancelCircularBtn">إلغاء</button>
+      </div>
+
+      <div class="center" style="margin-top:10px">
+        <button class="link-btn" id="deleteCircularBtn" style="display:none;color:#b91c1c">حذف هذا التعميم</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="circulars.js"></script>
+  <script>
+    let allCirculars = [];
+    let editingCircularId = null;
+
+    const circularsList = document.getElementById("circularsList");
+
+    function formatDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+    }
+
+    // -------------------------------------------------
+    // رسم قائمة التعاميم بلوحة المشرف (كلها مفتوحة، بدون حالة مقروء/غير مقروء)
+    // -------------------------------------------------
+    function renderCirculars() {
+      circularsList.innerHTML = "";
+      if (allCirculars.length === 0) {
+        circularsList.innerHTML = '<div class="empty-hint">لا توجد تعاميم بعد.</div>';
+      }
+
+      allCirculars.forEach((c) => {
+        const card = document.createElement("div");
+        card.className = "circular-card";
+        card.innerHTML = `
+          <div class="circular-title-row">
+            <span class="circular-title">${c.title}</span>
+          </div>
+          <div class="circular-date">${formatDate(c.created_at)}</div>
+          <div class="circular-content">${c.content}</div>
+        `;
+        card.addEventListener("click", () => openEditCircularModal(c));
+        circularsList.appendChild(card);
+      });
+    }
+
+    async function loadCirculars() {
+      allCirculars = await fetchCirculars();
+      renderCirculars();
+    }
+
+    // ==================================================================
+    // نافذة إضافة/تعديل تعميم
+    // ==================================================================
+    const circularModal = document.getElementById("circularModal");
+    const circularModalTitle = document.getElementById("circularModalTitle");
+    const circularModalError = document.getElementById("circularModalError");
+    const deleteCircularBtn = document.getElementById("deleteCircularBtn");
+
+    function openAddCircularModal() {
+      editingCircularId = null;
+      circularModalTitle.textContent = "إضافة تعميم جديد";
+      document.getElementById("circularTitleInput").value = "";
+      document.getElementById("circularContentInput").value = "";
+      circularModalError.textContent = "";
+      deleteCircularBtn.style.display = "none";
+      circularModal.style.display = "flex";
+    }
+
+    function openEditCircularModal(c) {
+      editingCircularId = c.id;
+      circularModalTitle.textContent = "تعديل التعميم";
+      document.getElementById("circularTitleInput").value = c.title;
+      document.getElementById("circularContentInput").value = c.content;
+      circularModalError.textContent = "";
+      deleteCircularBtn.style.display = "inline-block";
+      circularModal.style.display = "flex";
+    }
+
+    document.getElementById("addCircularBtn").addEventListener("click", openAddCircularModal);
+    document.getElementById("cancelCircularBtn").addEventListener("click", () => {
+      circularModal.style.display = "none";
+    });
+
+    document.getElementById("saveCircularBtn").addEventListener("click", async () => {
+      const title = document.getElementById("circularTitleInput").value.trim();
+      const content = document.getElementById("circularContentInput").value.trim();
+      if (!title || !content) {
+        circularModalError.textContent = "اكتب العنوان والنص";
+        return;
+      }
+
+      const saveBtn = document.getElementById("saveCircularBtn");
+      saveBtn.disabled = true; // يمنع تكرار الضغط والتسبب بإضافة التعميم أكثر من مرة
+      try {
+        if (editingCircularId) {
+          const updated = await updateCircular(editingCircularId, { title, content });
+          const index = allCirculars.findIndex((c) => c.id === editingCircularId);
+          if (index !== -1) allCirculars[index] = updated;
+        } else {
+          const created = await addCircular({ title, content });
+          allCirculars.unshift(created); // نضيفه بالأول لأن الترتيب الأحدث فأحدث
+        }
+        circularModal.style.display = "none";
+        renderCirculars();
+      } catch (e) {
+        circularModalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+
+    deleteCircularBtn.addEventListener("click", async () => {
+      const confirmed = confirm("هل أنت متأكد من حذف هذا التعميم؟");
+      if (!confirmed) return;
+      await deleteCircular(editingCircularId);
+      allCirculars = allCirculars.filter((c) => c.id !== editingCircularId);
+      circularModal.style.display = "none";
+      renderCirculars();
+    });
+
+    // ==================================================================
+    // تشغيل الصفحة
+    // ==================================================================
+    (async () => {
+      await requireAuth({ adminOnly: true });
+      document.getElementById("backAdminBtn").addEventListener("click", () => {
+        window.location.href = "admin.html";
+      });
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+      await loadCirculars();
+    })();
+  </script>
+</body>
+</html>

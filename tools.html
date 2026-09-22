@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الأدوات المساعدة — مساعد المفتش</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1>الأدوات المساعدة</h1>
+    <div class="user-info">
+      <button id="logoutBtn" class="secondary">خروج</button>
+    </div>
+  </header>
+
+  <div class="main" style="padding-bottom:8px">
+    <div class="categories-grid" id="toolsGrid"></div>
+  </div>
+  <div class="bottom-nav-spacer"></div>
+
+  <!-- ==================== الشريط السفلي ==================== -->
+  <nav class="bottom-nav">
+    <a href="index.html"><span class="nav-icon">📋</span>البنود</a>
+    <a href="circulars.html"><span class="nav-icon">📢</span>تعاميم</a>
+    <a href="tools.html" class="active"><span class="nav-icon">🛠️</span>أدوات مساعدة</a>
+  </nav>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="tools.js"></script>
+  <script>
+    // -------------------------------------------------
+    // عرض الأدوات: أيقونة واسم فقط، الرابط نفسه مو ظاهر بالواجهة
+    // الضغط على الأداة يفتح رابطها بتبويب جديد
+    // -------------------------------------------------
+    function renderTools(tools) {
+      const grid = document.getElementById("toolsGrid");
+      grid.innerHTML = "";
+
+      if (tools.length === 0) {
+        grid.innerHTML = '<div class="empty-hint">لا توجد أدوات مساعدة حاليًا.</div>';
+        return;
+      }
+
+      tools.forEach((tool) => {
+        const card = document.createElement("div");
+        card.className = "tool-card";
+        card.innerHTML = `
+          <div class="tool-visual">
+            ${tool.image_value ? `<img src="${tool.image_value}" alt="${tool.name}" />` : `<span class="icon-text">🔗</span>`}
+          </div>
+          <div class="tool-name">${tool.name}</div>
+        `;
+        card.addEventListener("click", () => {
+          window.open(tool.url, "_blank", "noopener,noreferrer");
+        });
+        grid.appendChild(card);
+      });
+    }
+
+    (async () => {
+      await requireAuth(); // أي مستخدم مسجل دخول (زائر أو مشرف)
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+      const tools = await fetchTools();
+      renderTools(tools);
+    })();
+  </script>
+</body>
+</html>

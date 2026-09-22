@@ -13,6 +13,8 @@
   <header>
     <h1>لوحة المشرف</h1>
     <div class="user-info">
+      <button id="circularsLink" class="secondary">التعاميم</button>
+      <button id="toolsLink" class="secondary">الأدوات المساعدة</button>
       <button id="backLink" class="secondary">تبديل لوضع المفتش</button>
       <button id="logoutBtn" class="secondary">خروج</button>
     </div>
@@ -232,6 +234,12 @@
 
       document.getElementById("backLink").addEventListener("click", () => {
         window.location.href = "index.html";
+      });
+      document.getElementById("circularsLink").addEventListener("click", () => {
+        window.location.href = "circulars-admin.html";
+      });
+      document.getElementById("toolsLink").addEventListener("click", () => {
+        window.location.href = "tools-admin.html";
       });
       document.getElementById("logoutBtn").addEventListener("click", logout);
 

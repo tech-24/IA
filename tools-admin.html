@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إدارة الأدوات المساعدة — مساعد المفتش</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1>إدارة الأدوات المساعدة</h1>
+    <div class="user-info">
+      <button id="backAdminBtn" class="secondary">لوحة الأقسام</button>
+      <button id="logoutBtn" class="secondary">خروج</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="categories-grid" id="toolsGrid"></div>
+  </div>
+
+  <!-- ==================== نافذة إضافة/تعديل أداة ==================== -->
+  <div class="modal-overlay" id="toolModal" style="display:none">
+    <div class="modal-box">
+      <h3 id="toolModalTitle">إضافة أداة جديدة</h3>
+
+      <div class="field">
+        <label for="toolName">اسم الأداة</label>
+        <input type="text" id="toolName" />
+      </div>
+
+      <div class="field">
+        <label for="toolUrl">الرابط</label>
+        <input type="url" id="toolUrl" placeholder="https://" />
+      </div>
+
+      <div class="field">
+        <label for="toolFile">إرفاق أيقونة (اختياري)</label>
+        <input type="file" id="toolFile" accept="image/*" />
+      </div>
+
+      <div class="error" id="toolModalError"></div>
+
+      <div class="modal-actions">
+        <button id="saveToolBtn">حفظ</button>
+        <button class="secondary" id="cancelToolBtn">إلغاء</button>
+      </div>
+
+      <div class="center" style="margin-top:10px">
+        <button class="link-btn" id="deleteToolBtn" style="display:none;color:#b91c1c">حذف هذي الأداة</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="image-utils.js"></script>
+  <script src="tools.js"></script>
+  <script>
+    let allTools = [];
+    let editingToolId = null;
+
+    const toolsGrid = document.getElementById("toolsGrid");
+
+    function renderTools() {
+      toolsGrid.innerHTML = "";
+
+      allTools.forEach((tool) => {
+        const card = document.createElement("div");
+        card.className = "category-card";
+        card.style.cursor = "pointer";
+        card.addEventListener("click", () => openEditToolModal(tool));
+
+        const visual = document.createElement("div");
+        visual.className = "category-visual";
+        visual.innerHTML = tool.image_value
+          ? `<img src="${tool.image_value}" alt="${tool.name}" />`
+          : `<span class="icon-text">🔗</span>`;
+
+        const name = document.createElement("div");
+        name.className = "category-name";
+        name.textContent = tool.name;
+
+        card.appendChild(visual);
+        card.appendChild(name);
+        toolsGrid.appendChild(card);
+      });
+
+      const addCard = document.createElement("div");
+      addCard.className = "add-category-card";
+      addCard.textContent = "+ إضافة أداة جديدة";
+      addCard.addEventListener("click", openAddToolModal);
+      toolsGrid.appendChild(addCard);
+    }
+
+    async function loadTools() {
+      allTools = await fetchTools();
+      renderTools();
+    }
+
+    // ==================================================================
+    // نافذة إضافة/تعديل أداة
+    // ==================================================================
+    const toolModal = document.getElementById("toolModal");
+    const toolModalTitle = document.getElementById("toolModalTitle");
+    const toolModalError = document.getElementById("toolModalError");
+    const deleteToolBtn = document.getElementById("deleteToolBtn");
+
+    function openAddToolModal() {
+      editingToolId = null;
+      toolModalTitle.textContent = "إضافة أداة جديدة";
+      document.getElementById("toolName").value = "";
+      document.getElementById("toolUrl").value = "";
+      document.getElementById("toolFile").value = "";
+      toolModalError.textContent = "";
+      deleteToolBtn.style.display = "none";
+      toolModal.style.display = "flex";
+    }
+
+    function openEditToolModal(tool) {
+      editingToolId = tool.id;
+      toolModalTitle.textContent = "تعديل الأداة";
+      document.getElementById("toolName").value = tool.name;
+      document.getElementById("toolUrl").value = tool.url;
+      document.getElementById("toolFile").value = "";
+      toolModalError.textContent = "";
+      deleteToolBtn.style.display = "inline-block";
+      toolModal.style.display = "flex";
+    }
+
+    document.getElementById("cancelToolBtn").addEventListener("click", () => {
+      toolModal.style.display = "none";
+    });
+
+    document.getElementById("saveToolBtn").addEventListener("click", async () => {
+      const name = document.getElementById("toolName").value.trim();
+      const url = document.getElementById("toolUrl").value.trim();
+      const file = document.getElementById("toolFile").files[0];
+
+      if (!name || !url) {
+        toolModalError.textContent = "اكتب اسم الأداة والرابط";
+        return;
+      }
+
+      const saveBtn = document.getElementById("saveToolBtn");
+      saveBtn.disabled = true;
+      try {
+        if (editingToolId) {
+          const updated = await updateTool(editingToolId, { name, url, file });
+          const index = allTools.findIndex((t) => t.id === editingToolId);
+          if (index !== -1) allTools[index] = updated;
+        } else {
+          const created = await addTool({ name, url, file });
+          allTools.push(created);
+        }
+        toolModal.style.display = "none";
+        renderTools();
+      } catch (e) {
+        toolModalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+
+    deleteToolBtn.addEventListener("click", async () => {
+      const confirmed = confirm("هل أنت متأكد من حذف هذي الأداة؟");
+      if (!confirmed) return;
+      await deleteTool(editingToolId);
+      allTools = allTools.filter((t) => t.id !== editingToolId);
+      toolModal.style.display = "none";
+      renderTools();
+    });
+
+    // ==================================================================
+    // تشغيل الصفحة
+    // ==================================================================
+    (async () => {
+      await requireAuth({ adminOnly: true });
+      document.getElementById("backAdminBtn").addEventListener("click", () => {
+        window.location.href = "admin.html";
+      });
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+      await loadTools();
+    })();
+  </script>
+</body>
+</html>

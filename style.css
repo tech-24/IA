@@ -33,6 +33,8 @@
 
 * { box-sizing: border-box; }
 
+html { overflow-x: hidden; }
+
 body {
   margin: 0;
   font-family: "Tajawal", "Tahoma", "Segoe UI", sans-serif;
@@ -40,6 +42,9 @@ body {
   color: var(--text);
   direction: rtl;
   line-height: 1.6;
+  overflow-x: hidden; /* يمنع أي عنصر (نص طويل بلا مسافات مثلاً) من تكبير عرض الصفحة والتسبب بانزياح النوافذ المنبثقة */
+  overflow-wrap: break-word; /* يجبر أي نص طويل متواصل بدون مسافات على الالتفاف بدل ما يفيض خارج حدوده */
+  word-break: break-word;
 }
 
 /* ---------- الشريط العلوي (header) في كل الصفحات ---------- */

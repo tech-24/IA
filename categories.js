@@ -52,6 +52,7 @@ async function uploadCategoryImage(file) {
 // -------------------------------------------------
 // إضافة قسم جديد
 // image_type: "upload" (فيه ملف صورة) أو "icon" (نص/إيموجي يدوي)
+// ترجع الصف المُضاف نفسه (بدل إعادة تحميل كل الأقسام من الخادم مرة ثانية)
 // -------------------------------------------------
 async function addCategory({ name, image_type, file, iconValue }) {
   let image_value = null;
@@ -62,15 +63,19 @@ async function addCategory({ name, image_type, file, iconValue }) {
     image_value = iconValue; // نحفظ النص/الإيموجي مباشرة بدون رفع
   }
 
-  const { error } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from("categories")
-    .insert({ name, image_type, image_value });
+    .insert({ name, image_type, image_value })
+    .select()
+    .single();
   if (error) throw error;
+  return data;
 }
 
 // -------------------------------------------------
 // تعديل قسم موجود
 // لو ما اختار المشرف صورة/أيقونة جديدة، تبقى القديمة كما هي (keepExistingImage)
+// ترجع الصف بعد التعديل (نفس فكرة addCategory أعلاه)
 // -------------------------------------------------
 async function updateCategory(id, { name, image_type, file, iconValue, keepExistingImage }) {
   const updates = { name, image_type };
@@ -81,8 +86,14 @@ async function updateCategory(id, { name, image_type, file, iconValue, keepExist
     updates.image_value = iconValue;
   }
 
-  const { error } = await supabaseClient.from("categories").update(updates).eq("id", id);
+  const { data, error } = await supabaseClient
+    .from("categories")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
   if (error) throw error;
+  return data;
 }
 
 // -------------------------------------------------

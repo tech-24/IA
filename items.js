@@ -18,19 +18,30 @@ async function fetchItems(listId) {
 }
 
 // -------------------------------------------------
-// إضافة بند جديد تحت قائمة معيّنة
+// إضافة بند جديد تحت قائمة معيّنة — ترجع الصف المُضاف نفسه
 // -------------------------------------------------
 async function addItem({ list_id, name }) {
-  const { error } = await supabaseClient.from("items").insert({ list_id, name });
+  const { data, error } = await supabaseClient
+    .from("items")
+    .insert({ list_id, name })
+    .select()
+    .single();
   if (error) throw error;
+  return data;
 }
 
 // -------------------------------------------------
-// تعديل اسم بند موجود
+// تعديل اسم بند موجود — ترجع الصف بعد التعديل
 // -------------------------------------------------
 async function updateItem(id, { name }) {
-  const { error } = await supabaseClient.from("items").update({ name }).eq("id", id);
+  const { data, error } = await supabaseClient
+    .from("items")
+    .update({ name })
+    .eq("id", id)
+    .select()
+    .single();
   if (error) throw error;
+  return data;
 }
 
 // -------------------------------------------------

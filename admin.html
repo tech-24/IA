@@ -64,6 +64,7 @@
     // متغيرات تتبع حالة النافذة المنبثقة
     // ==================================================================
     let editingCategoryId = null;    // null = وضع إضافة، غير null = وضع تعديل (قيمته id القسم)
+    let categoriesCache = [];        // نسخة محلية من الأقسام — نعدّلها مباشرة بدل إعادة الجلب من الخادم في كل مرة
 
     const grid = document.getElementById("categoriesGrid");
     const modal = document.getElementById("categoryModal");
@@ -72,15 +73,22 @@
     const deleteCategoryBtn = document.getElementById("deleteCategoryBtn");
 
     // -------------------------------------------------
-    // رسم شبكة الأقسام بالكامل (تُستدعى بعد أي إضافة/تعديل/حذف)
+    // جلب الأقسام من الخادم (تُستدعى مرة وحدة فقط عند فتح الصفحة)
     // -------------------------------------------------
-    async function renderCategories() {
+    async function loadCategories() {
       grid.innerHTML = "<p>جارٍ التحميل...</p>";
-      const categories = await fetchCategories();
+      categoriesCache = await fetchCategories();
+      renderCategories();
+    }
 
+    // -------------------------------------------------
+    // رسم شبكة الأقسام من النسخة المحلية (categoriesCache) بدون أي اتصال بالخادم
+    // تُستدعى بعد أي إضافة/تعديل/حذف عشان الاستجابة تكون فورية
+    // -------------------------------------------------
+    function renderCategories() {
       grid.innerHTML = "";
 
-      categories.forEach((cat) => {
+      categoriesCache.forEach((cat) => {
         const card = document.createElement("div");
         card.className = "category-card";
         card.style.cursor = "pointer";
@@ -178,13 +186,17 @@
       try {
         if (editingCategoryId) {
           // وضع تعديل: لو ما اختار ملف جديد، تبقى الصورة القديمة كما هي
-          await updateCategory(editingCategoryId, { name, image_type: "upload", file });
+          const updated = await updateCategory(editingCategoryId, { name, image_type: "upload", file });
+          // نحدّث الصف بالنسخة المحلية مباشرة بدل إعادة جلب كل الأقسام من الخادم
+          const index = categoriesCache.findIndex((c) => c.id === editingCategoryId);
+          if (index !== -1) categoriesCache[index] = updated;
         } else {
-          // وضع إضافة
-          await addCategory({ name, image_type: "upload", file });
+          // وضع إضافة: نضيف الصف الجديد اللي رجع من الخادم للنسخة المحلية مباشرة
+          const created = await addCategory({ name, image_type: "upload", file });
+          categoriesCache.push(created);
         }
         modal.style.display = "none";
-        await renderCategories();
+        renderCategories(); // رسم فوري من النسخة المحلية، بدون انتظار اتصال إضافي بالخادم
       } catch (e) {
         modalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
       } finally {
@@ -202,8 +214,10 @@
 
       try {
         await deleteCategory(editingCategoryId);
+        // نحذف الصف من النسخة المحلية مباشرة بدل إعادة جلب كل الأقسام من الخادم
+        categoriesCache = categoriesCache.filter((c) => c.id !== editingCategoryId);
         modal.style.display = "none";
-        await renderCategories();
+        renderCategories();
       } catch (e) {
         modalError.textContent = e.message || "تعذر حذف القسم";
       }
@@ -220,7 +234,7 @@
       });
       document.getElementById("logoutBtn").addEventListener("click", logout);
 
-      await renderCategories();
+      await loadCategories();
     })();
   </script>
 </body>

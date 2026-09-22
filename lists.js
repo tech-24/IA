@@ -31,11 +31,17 @@ async function addList({ category_id, name }) {
 }
 
 // -------------------------------------------------
-// تعديل اسم قائمة موجودة
+// تعديل اسم قائمة موجودة — ترجع الصف بعد التعديل
 // -------------------------------------------------
 async function updateList(id, { name }) {
-  const { error } = await supabaseClient.from("lists").update({ name }).eq("id", id);
+  const { data, error } = await supabaseClient
+    .from("lists")
+    .update({ name })
+    .eq("id", id)
+    .select()
+    .single();
   if (error) throw error;
+  return data;
 }
 
 // -------------------------------------------------

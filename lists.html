@@ -91,10 +91,11 @@
     const categoryId = urlParams.get("category_id");
 
     // متغيرات الحالة
-    let allLists = [];        // كل قوائم هذا القسم
-    let activeListId = null;  // القائمة المفتوحة حاليًا (التبويب النشط)
-    let editingListId = null; // القائمة اللي يتم تعديلها بالنافذة المنبثقة
-    let editingItemId = null; // البند اللي يتم تعديله بالنافذة المنبثقة
+    let allLists = [];          // كل قوائم هذا القسم (نسخة محلية، نعدّلها مباشرة)
+    let activeListId = null;    // القائمة المفتوحة حاليًا (التبويب النشط)
+    let editingListId = null;   // القائمة اللي يتم تعديلها بالنافذة المنبثقة
+    let editingItemId = null;   // البند اللي يتم تعديله بالنافذة المنبثقة
+    let itemsCacheByList = {};  // { listId: [items] } — بنود كل قائمة تُجلب مرة وحدة وتُخزّن هنا
 
     const listsTabs = document.getElementById("listsTabs");
     const listPanelHeader = document.getElementById("listPanelHeader");
@@ -112,10 +113,10 @@
         const tab = document.createElement("div");
         tab.className = "list-tab" + (list.id === activeListId ? " active" : "");
         tab.textContent = list.name;
-        tab.addEventListener("click", () => {
+        tab.addEventListener("click", async () => {
           activeListId = list.id;
           renderTabs();
-          renderListPanel();
+          await showListPanel();
         });
         listsTabs.appendChild(tab);
       });
@@ -129,22 +130,40 @@
     }
 
     // -------------------------------------------------
-    // رسم لوحة القائمة النشطة (العنوان + البنود)
+    // التأكد من وجود بنود القائمة بالذاكرة المؤقتة — يجلبها من الخادم
+    // فقط أول مرة تُفتح فيها هذي القائمة، وبعدها تُستخدم النسخة المحفوظة
     // -------------------------------------------------
-    async function renderListPanel() {
+    async function ensureItemsLoaded(listId) {
+      if (!(listId in itemsCacheByList)) {
+        itemsCacheByList[listId] = await fetchItems(listId);
+      }
+    }
+
+    // -------------------------------------------------
+    // عرض لوحة القائمة النشطة: يتأكد من توفر البنود بالذاكرة أولًا، ثم يرسمها
+    // -------------------------------------------------
+    async function showListPanel() {
       if (!activeListId) {
         listPanelHeader.style.display = "none";
         itemsListEl.innerHTML = "";
         addItemBtnWrap.innerHTML = "";
         return;
       }
+      itemsListEl.innerHTML = "<p>جارٍ التحميل...</p>";
+      await ensureItemsLoaded(activeListId);
+      renderListPanel();
+    }
 
+    // -------------------------------------------------
+    // رسم لوحة القائمة النشطة (العنوان + البنود) من الذاكرة المؤقتة مباشرة
+    // بدون أي اتصال بالخادم — تُستدعى بعد أي إضافة/تعديل/حذف بند
+    // -------------------------------------------------
+    function renderListPanel() {
       const activeList = allLists.find((l) => l.id === activeListId);
       listPanelHeader.style.display = "flex";
       activeListNameEl.textContent = activeList.name;
 
-      itemsListEl.innerHTML = "<p>جارٍ التحميل...</p>";
-      const items = await fetchItems(activeListId);
+      const items = itemsCacheByList[activeListId] || [];
       itemsListEl.innerHTML = "";
 
       if (items.length === 0) {
@@ -182,7 +201,7 @@
     }
 
     // -------------------------------------------------
-    // تحميل كل القوائم الخاصة بهذا القسم، وتفعيل أول قائمة تلقائيًا
+    // تحميل كل القوائم الخاصة بهذا القسم (تُستدعى مرة وحدة عند فتح الصفحة)
     // -------------------------------------------------
     async function loadLists() {
       allLists = await fetchLists(categoryId);
@@ -190,7 +209,7 @@
         activeListId = allLists[0].id;
       }
       renderTabs();
-      await renderListPanel();
+      await showListPanel();
     }
 
     // ==================================================================
@@ -231,13 +250,19 @@
       saveBtn.disabled = true; // يمنع تكرار الضغط والتسبب بإضافة القائمة أكثر من مرة
       try {
         if (editingListId) {
-          await updateList(editingListId, { name });
+          const updated = await updateList(editingListId, { name });
+          // نحدّث الصف بالنسخة المحلية مباشرة بدل إعادة جلب كل القوائم من الخادم
+          const index = allLists.findIndex((l) => l.id === editingListId);
+          if (index !== -1) allLists[index] = updated;
         } else {
           const newList = await addList({ category_id: categoryId, name });
+          allLists.push(newList);
+          itemsCacheByList[newList.id] = []; // قائمة جديدة تبدأ بدون بنود، لا داعي لجلبها من الخادم
           activeListId = newList.id; // نفتح القائمة الجديدة مباشرة بعد إنشائها
         }
         listModal.style.display = "none";
-        await loadLists();
+        renderTabs();
+        await showListPanel(); // ما راح يسوي أي اتصال إضافي لو القائمة موجودة بالذاكرة مسبقًا
       } catch (e) {
         listModalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
       } finally {
@@ -251,8 +276,12 @@
       const confirmed = confirm("هل أنت متأكد من حذف هذي القائمة؟ سيُحذف معها كل بنودها وحالاتها.");
       if (!confirmed) return;
       await deleteList(activeListId);
-      activeListId = null;
-      await loadLists();
+      // نحذف القائمة وبنودها من الذاكرة المحلية مباشرة بدل إعادة الجلب
+      allLists = allLists.filter((l) => l.id !== activeListId);
+      delete itemsCacheByList[activeListId];
+      activeListId = allLists.length > 0 ? allLists[0].id : null;
+      renderTabs();
+      await showListPanel();
     });
 
     // ==================================================================
@@ -294,13 +323,17 @@
       const saveBtn = document.getElementById("saveItemBtn");
       saveBtn.disabled = true; // يمنع تكرار الضغط والتسبب بإضافة البند أكثر من مرة
       try {
+        const items = itemsCacheByList[activeListId];
         if (editingItemId) {
-          await updateItem(editingItemId, { name });
+          const updated = await updateItem(editingItemId, { name });
+          const index = items.findIndex((i) => i.id === editingItemId);
+          if (index !== -1) items[index] = updated;
         } else {
-          await addItem({ list_id: activeListId, name });
+          const created = await addItem({ list_id: activeListId, name });
+          items.push(created);
         }
         itemModal.style.display = "none";
-        await renderListPanel();
+        renderListPanel(); // رسم فوري من الذاكرة، بدون اتصال إضافي بالخادم
       } catch (e) {
         itemModalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
       } finally {
@@ -312,8 +345,9 @@
       const confirmed = confirm("هل أنت متأكد من حذف هذا البند؟ سيُحذف معه كل حالاته وصوره.");
       if (!confirmed) return;
       await deleteItem(editingItemId);
+      itemsCacheByList[activeListId] = itemsCacheByList[activeListId].filter((i) => i.id !== editingItemId);
       itemModal.style.display = "none";
-      await renderListPanel();
+      renderListPanel();
     });
 
     // ==================================================================

@@ -227,6 +227,8 @@
         listModalError.textContent = "اكتب اسم القائمة";
         return;
       }
+      const saveBtn = document.getElementById("saveListBtn");
+      saveBtn.disabled = true; // يمنع تكرار الضغط والتسبب بإضافة القائمة أكثر من مرة
       try {
         if (editingListId) {
           await updateList(editingListId, { name });
@@ -238,6 +240,8 @@
         await loadLists();
       } catch (e) {
         listModalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
+      } finally {
+        saveBtn.disabled = false;
       }
     });
 
@@ -287,6 +291,8 @@
         itemModalError.textContent = "اكتب اسم البند";
         return;
       }
+      const saveBtn = document.getElementById("saveItemBtn");
+      saveBtn.disabled = true; // يمنع تكرار الضغط والتسبب بإضافة البند أكثر من مرة
       try {
         if (editingItemId) {
           await updateItem(editingItemId, { name });
@@ -297,6 +303,8 @@
         await renderListPanel();
       } catch (e) {
         itemModalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
+      } finally {
+        saveBtn.disabled = false;
       }
     });
 

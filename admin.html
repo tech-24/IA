@@ -173,6 +173,8 @@
         return;
       }
 
+      const saveBtn = document.getElementById("saveCategoryBtn");
+      saveBtn.disabled = true; // يمنع تكرار الضغط والتسبب بإضافة القسم أكثر من مرة
       try {
         if (editingCategoryId) {
           // وضع تعديل: لو ما اختار ملف جديد، تبقى الصورة القديمة كما هي
@@ -185,6 +187,8 @@
         await renderCategories();
       } catch (e) {
         modalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
+      } finally {
+        saveBtn.disabled = false;
       }
     });
 

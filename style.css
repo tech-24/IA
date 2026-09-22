@@ -87,13 +87,15 @@ button.secondary {
 }
 button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none; }
 
-/* أزرار ثانوية داخل البطاقات (خلفية فاتحة، مو بالشريط العلوي) */
-.main button.secondary {
+/* أزرار ثانوية داخل البطاقات والنوافذ المنبثقة (خلفية فاتحة، مو بالشريط العلوي) */
+.main button.secondary,
+.modal-box button.secondary {
   background: var(--primary-light);
   color: var(--primary-dark);
   border: 1px solid var(--border);
 }
-.main button.secondary:hover { background: #ddeaf6; }
+.main button.secondary:hover,
+.modal-box button.secondary:hover { background: #ddeaf6; }
 
 /* ---------- صندوق صفحة تسجيل الدخول (login.html) ---------- */
 .container { max-width: 440px; margin: 70px auto; padding: 24px; }

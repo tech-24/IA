@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تسجيل الدخول — داش بورد رصد البنود</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- مكتبة Supabase الرسمية (من CDN) — لازم تكون قبل config.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- ==================== صندوق النموذج (تسجيل دخول / حساب جديد) ==================== -->
+  <div class="container">
+    <div class="card">
+      <!-- العنوان يتغيّر تلقائيًا بين "تسجيل الدخول" و "إنشاء حساب جديد" -->
+      <h2 id="formTitle">تسجيل الدخول</h2>
+
+      <div class="field">
+        <label for="email">البريد الإلكتروني</label>
+        <input type="email" id="email" placeholder="example@mail.com" />
+      </div>
+      <div class="field">
+        <label for="password">كلمة المرور</label>
+        <input type="password" id="password" placeholder="••••••••" />
+      </div>
+
+      <!-- تظهر فيها رسالة الخطأ لو صار خطأ بالتسجيل/الدخول -->
+      <div class="error" id="errorMsg"></div>
+      <!-- تظهر فيها رسالة نجاح (مثلاً بعد إنشاء حساب جديد) -->
+      <div class="success" id="successMsg"></div>
+
+      <!-- نفس الزر يستخدم لتسجيل الدخول أو إنشاء الحساب حسب الوضع الحالي -->
+      <button id="submitBtn" style="width:100%">دخول</button>
+
+      <div class="center" style="margin-top:14px">
+        <!-- زر يبدّل بين وضع "تسجيل دخول" ووضع "إنشاء حساب جديد" -->
+        <button class="link-btn" id="toggleModeBtn">ما عندك حساب؟ سجّل حساب جديد</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ترتيب التحميل مهم: config.js (فيه supabaseClient) ثم auth.js (يستخدمه) -->
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    // ==================================================================
+    // منطق الصفحة: يبدّل بين وضعين (login / signup) بنفس النموذج
+    // ==================================================================
+
+    let mode = "login"; // القيمة الحالية: "login" أو "signup"
+
+    const formTitle = document.getElementById("formTitle");
+    const submitBtn = document.getElementById("submitBtn");
+    const toggleModeBtn = document.getElementById("toggleModeBtn");
+    const errorMsg = document.getElementById("errorMsg");
+    const successMsg = document.getElementById("successMsg");
+
+    // -------- الضغط على "ما عندك حساب؟" يبدّل نصوص الواجهة بين الوضعين --------
+    toggleModeBtn.addEventListener("click", () => {
+      mode = mode === "login" ? "signup" : "login";
+      formTitle.textContent = mode === "login" ? "تسجيل الدخول" : "إنشاء حساب جديد";
+      submitBtn.textContent = mode === "login" ? "دخول" : "إنشاء الحساب";
+      toggleModeBtn.textContent = mode === "login"
+        ? "ما عندك حساب؟ سجّل حساب جديد"
+        : "عندك حساب؟ سجّل الدخول";
+      errorMsg.textContent = "";
+      successMsg.textContent = "";
+    });
+
+    // -------- الضغط على زر "دخول" / "إنشاء الحساب" --------
+    submitBtn.addEventListener("click", async () => {
+      errorMsg.textContent = "";
+      successMsg.textContent = "";
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      // تحقق بسيط: الحقول ما تكون فاضية
+      if (!email || !password) {
+        errorMsg.textContent = "عبّي البريد وكلمة المرور";
+        return;
+      }
+
+      submitBtn.disabled = true; // يمنع الضغط المتكرر أثناء الإرسال
+      try {
+        if (mode === "login") {
+          // تسجيل دخول (الدالة login موجودة بملف auth.js)
+          await login(email, password);
+          window.location.href = "index.html";
+        } else {
+          // إنشاء حساب جديد (الدالة signup موجودة بملف auth.js)
+          await signup(email, password);
+          successMsg.textContent = "تم إنشاء الحساب. تحقق من بريدك لتأكيد التسجيل إذا طُلب منك ذلك، ثم سجّل الدخول.";
+          // بعد نجاح الإنشاء، نرجّع النموذج لوضع "تسجيل دخول"
+          mode = "login";
+          formTitle.textContent = "تسجيل الدخول";
+          submitBtn.textContent = "دخول";
+          toggleModeBtn.textContent = "ما عندك حساب؟ سجّل حساب جديد";
+        }
+      } catch (e) {
+        // أي خطأ من Supabase (بريد مستخدم من قبل، كلمة مرور قصيرة...) يظهر هنا
+        errorMsg.textContent = e.message || "حدث خطأ، حاول مرة أخرى";
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    // -------- لو المستخدم مسجل دخول مسبقًا، وديه مباشرة للصفحة الرئيسية --------
+    (async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) window.location.href = "index.html";
+    })();
+  </script>
+</body>
+</html>

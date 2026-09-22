@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>داش بورد رصد البنود</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <!-- ==================== الشريط العلوي ==================== -->
+  <header>
+    <h1>داش بورد رصد البنود</h1>
+    <div class="user-info">
+      <span id="userEmail"></span>
+      <!-- شارة تبيّن نوع الحساب: "زائر" أو "مشرف" -->
+      <span class="badge" id="roleBadge"></span>
+      <!-- هذا الزر يظهر فقط لو المستخدم مشرف (يتحكم فيه كود JS تحت) -->
+      <button id="adminLink" class="secondary" style="display:none">لوحة المشرف</button>
+      <button id="logoutBtn" class="secondary">خروج</button>
+    </div>
+  </header>
+
+  <!-- ==================== المحتوى الرئيسي ====================
+       عرض الأقسام (قراءة فقط) — البنود والحالات تُضاف بخطوة لاحقة
+       عند الضغط على قسم ============================================= -->
+  <div class="main">
+    <h2>الأقسام</h2>
+    <div class="categories-grid" id="categoriesGrid"></div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="categories.js"></script>
+  <script>
+    // -------------------------------------------------
+    // عرض الأقسام كمربعات للقراءة فقط (بدون أزرار تعديل/حذف)
+    // -------------------------------------------------
+    async function renderCategoriesReadOnly() {
+      const grid = document.getElementById("categoriesGrid");
+      grid.innerHTML = "<p>جارٍ التحميل...</p>";
+
+      const categories = await fetchCategories(); // نفس الدالة المستخدمة بلوحة المشرف
+      grid.innerHTML = "";
+
+      if (categories.length === 0) {
+        grid.innerHTML = "<p>لا توجد أقسام بعد.</p>";
+        return;
+      }
+
+      categories.forEach((cat) => {
+        const card = document.createElement("div");
+        card.className = "category-card";
+        card.style.cursor = "pointer";
+
+        const visual = document.createElement("div");
+        visual.className = "category-visual";
+        if (cat.image_type === "upload" && cat.image_value) {
+          visual.innerHTML = `<img src="${cat.image_value}" alt="${cat.name}" />`;
+        } else {
+          visual.innerHTML = `<span class="icon-text">${cat.image_value || "❔"}</span>`;
+        }
+
+        const name = document.createElement("div");
+        name.className = "category-name";
+        name.textContent = cat.name;
+
+        card.appendChild(visual);
+        card.appendChild(name);
+
+        // بخطوة لاحقة: الضغط على القسم بيوديك لصفحة البنود الخاصة فيه
+        // حاليًا لا يوجد إجراء لأن شاشة البنود لسه ما بنيت
+        card.addEventListener("click", () => {
+          alert(`قسم "${cat.name}" — شاشة البنود بتُضاف بالخطوة الجاية`);
+        });
+
+        grid.appendChild(card);
+      });
+    }
+
+    // ==================================================================
+    // تشغيل الصفحة: التحقق من تسجيل الدخول، ثم عرض الأقسام
+    // ==================================================================
+    (async () => {
+      // requireAuth() بدون adminOnly = يسمح لأي مستخدم مسجل دخول (زائر أو مشرف)
+      const profile = await requireAuth();
+
+      document.getElementById("userEmail").textContent = profile.email;
+      const roleBadge = document.getElementById("roleBadge");
+      roleBadge.textContent = profile.role === "admin" ? "مشرف" : "زائر";
+      if (profile.role === "admin") {
+        roleBadge.classList.add("admin");
+        document.getElementById("adminLink").style.display = "inline-block";
+      }
+
+      document.getElementById("adminLink").addEventListener("click", () => {
+        window.location.href = "admin.html";
+      });
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+
+      await renderCategoriesReadOnly();
+    })();
+  </script>
+</body>
+</html>

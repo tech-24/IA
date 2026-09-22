@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة المشرف — داش بورد رصد البنود</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1>لوحة المشرف</h1>
+    <div class="user-info">
+      <span id="userEmail"></span>
+      <button id="backLink" class="secondary">الرئيسية</button>
+      <button id="logoutBtn" class="secondary">خروج</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <h2>الأقسام</h2>
+    <!-- هنا تُعرض كل الأقسام كمربعات + مربع "إضافة قسم جديد" بالنهاية -->
+    <div class="categories-grid" id="categoriesGrid"></div>
+  </div>
+
+  <!-- ==================== النافذة المنبثقة لإضافة/تعديل قسم ====================
+       نفس النافذة تُستخدم للحالتين (إضافة وتعديل)، تتغيّر عناوينها بالـ JS ========= -->
+  <div class="modal-overlay" id="categoryModal" style="display:none">
+    <div class="modal-box">
+      <h3 id="modalTitle">إضافة قسم جديد</h3>
+
+      <div class="field">
+        <label for="categoryName">اسم القسم</label>
+        <input type="text" id="categoryName" placeholder="مثال: صحي" />
+      </div>
+
+      <!-- اختيار طريقة الصورة: رفع ملف، أو كتابة أيقونة/إيموجي يدويًا -->
+      <div class="image-type-toggle">
+        <button type="button" id="uploadTypeBtn" class="active">رفع صورة</button>
+        <button type="button" id="iconTypeBtn">أيقونة يدوية</button>
+      </div>
+
+      <div class="field" id="uploadField">
+        <label for="categoryFile">اختر صورة من جهازك</label>
+        <input type="file" id="categoryFile" accept="image/*" />
+      </div>
+
+      <div class="field" id="iconField" style="display:none">
+        <label for="categoryIcon">اكتب رمز/إيموجي يمثل القسم</label>
+        <input type="text" id="categoryIcon" placeholder="مثال: 🏥" maxlength="4" />
+      </div>
+
+      <div class="error" id="modalError"></div>
+
+      <div class="modal-actions">
+        <button id="saveCategoryBtn">حفظ</button>
+        <button class="secondary" id="cancelCategoryBtn">إلغاء</button>
+      </div>
+
+      <!-- زر الحذف يظهر فقط عند التعديل (مو عند الإضافة) -->
+      <div class="center" style="margin-top:10px">
+        <button class="link-btn" id="deleteCategoryBtn" style="display:none;color:#b91c1c">حذف هذا القسم</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ترتيب التحميل: config.js (اتصال Supabase) ثم auth.js (المصادقة) ثم categories.js (دوال الأقسام) -->
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="categories.js"></script>
+  <script>
+    // ==================================================================
+    // متغيرات تتبع حالة النافذة المنبثقة
+    // ==================================================================
+    let currentImageType = "upload"; // "upload" أو "icon" — أي وضع مفعّل حاليًا بالنافذة
+    let editingCategoryId = null;    // null = وضع إضافة، غير null = وضع تعديل (قيمته id القسم)
+    let editingCategory = null;      // بيانات القسم الحالي وقت التعديل (نحتاجها لو ما غيّر الصورة)
+
+    const grid = document.getElementById("categoriesGrid");
+    const modal = document.getElementById("categoryModal");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalError = document.getElementById("modalError");
+    const uploadTypeBtn = document.getElementById("uploadTypeBtn");
+    const iconTypeBtn = document.getElementById("iconTypeBtn");
+    const uploadField = document.getElementById("uploadField");
+    const iconField = document.getElementById("iconField");
+    const deleteCategoryBtn = document.getElementById("deleteCategoryBtn");
+
+    // -------------------------------------------------
+    // رسم شبكة الأقسام بالكامل (تُستدعى بعد أي إضافة/تعديل/حذف)
+    // -------------------------------------------------
+    async function renderCategories() {
+      grid.innerHTML = "<p>جارٍ التحميل...</p>";
+      const categories = await fetchCategories();
+
+      grid.innerHTML = "";
+
+      categories.forEach((cat) => {
+        const card = document.createElement("div");
+        card.className = "category-card";
+
+        const visual = document.createElement("div");
+        visual.className = "category-visual";
+        if (cat.image_type === "upload" && cat.image_value) {
+          visual.innerHTML = `<img src="${cat.image_value}" alt="${cat.name}" />`;
+        } else {
+          visual.innerHTML = `<span class="icon-text">${cat.image_value || "❔"}</span>`;
+        }
+
+        const name = document.createElement("div");
+        name.className = "category-name";
+        name.textContent = cat.name;
+
+        const actions = document.createElement("div");
+        actions.className = "category-actions";
+        actions.innerHTML = `
+          <button class="secondary edit-btn">تعديل</button>
+        `;
+        actions.querySelector(".edit-btn").addEventListener("click", () => openEditModal(cat));
+
+        card.appendChild(visual);
+        card.appendChild(name);
+        card.appendChild(actions);
+        grid.appendChild(card);
+      });
+
+      // مربع "إضافة قسم جديد" دائمًا بآخر الشبكة
+      const addCard = document.createElement("div");
+      addCard.className = "add-category-card";
+      addCard.textContent = "+ إضافة قسم جديد";
+      addCard.addEventListener("click", openAddModal);
+      grid.appendChild(addCard);
+    }
+
+    // -------------------------------------------------
+    // فتح النافذة بوضع "إضافة"
+    // -------------------------------------------------
+    function openAddModal() {
+      editingCategoryId = null;
+      editingCategory = null;
+      modalTitle.textContent = "إضافة قسم جديد";
+      document.getElementById("categoryName").value = "";
+      document.getElementById("categoryFile").value = "";
+      document.getElementById("categoryIcon").value = "";
+      modalError.textContent = "";
+      deleteCategoryBtn.style.display = "none";
+      setImageType("upload");
+      modal.style.display = "flex";
+    }
+
+    // -------------------------------------------------
+    // فتح النافذة بوضع "تعديل" مع تعبئة بيانات القسم الحالي
+    // -------------------------------------------------
+    function openEditModal(cat) {
+      editingCategoryId = cat.id;
+      editingCategory = cat;
+      modalTitle.textContent = "تعديل القسم";
+      document.getElementById("categoryName").value = cat.name;
+      document.getElementById("categoryFile").value = "";
+      document.getElementById("categoryIcon").value = cat.image_type === "icon" ? cat.image_value : "";
+      modalError.textContent = "";
+      deleteCategoryBtn.style.display = "inline-block";
+      setImageType(cat.image_type || "upload");
+      modal.style.display = "flex";
+    }
+
+    // -------------------------------------------------
+    // التبديل بين وضعي الصورة (رفع صورة / أيقونة يدوية) داخل النافذة
+    // -------------------------------------------------
+    function setImageType(type) {
+      currentImageType = type;
+      uploadTypeBtn.classList.toggle("active", type === "upload");
+      iconTypeBtn.classList.toggle("active", type === "icon");
+      uploadField.style.display = type === "upload" ? "block" : "none";
+      iconField.style.display = type === "icon" ? "block" : "none";
+    }
+    uploadTypeBtn.addEventListener("click", () => setImageType("upload"));
+    iconTypeBtn.addEventListener("click", () => setImageType("icon"));
+
+    // -------------------------------------------------
+    // إغلاق النافذة
+    // -------------------------------------------------
+    document.getElementById("cancelCategoryBtn").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+
+    // -------------------------------------------------
+    // حفظ (إضافة أو تعديل حسب editingCategoryId)
+    // -------------------------------------------------
+    document.getElementById("saveCategoryBtn").addEventListener("click", async () => {
+      modalError.textContent = "";
+      const name = document.getElementById("categoryName").value.trim();
+      const file = document.getElementById("categoryFile").files[0];
+      const iconValue = document.getElementById("categoryIcon").value.trim();
+
+      if (!name) {
+        modalError.textContent = "اكتب اسم القسم";
+        return;
+      }
+      if (currentImageType === "upload" && !file && !editingCategoryId) {
+        modalError.textContent = "اختر صورة للقسم";
+        return;
+      }
+      if (currentImageType === "icon" && !iconValue) {
+        modalError.textContent = "اكتب رمز/إيموجي للقسم";
+        return;
+      }
+
+      try {
+        if (editingCategoryId) {
+          // وضع تعديل: keepExistingImage = true لو ما اختار ملف/أيقونة جديدة
+          const keepExistingImage = currentImageType === "icon" && !iconValue;
+          await updateCategory(editingCategoryId, {
+            name,
+            image_type: currentImageType,
+            file,
+            iconValue,
+            keepExistingImage,
+          });
+        } else {
+          // وضع إضافة
+          await addCategory({ name, image_type: currentImageType, file, iconValue });
+        }
+        modal.style.display = "none";
+        await renderCategories();
+      } catch (e) {
+        modalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
+      }
+    });
+
+    // -------------------------------------------------
+    // حذف القسم الحالي (يظهر فقط بوضع التعديل)
+    // -------------------------------------------------
+    deleteCategoryBtn.addEventListener("click", async () => {
+      if (!editingCategoryId) return;
+      const confirmed = confirm("هل أنت متأكد من حذف هذا القسم؟ سيُحذف معه كل البنود والحالات التابعة له.");
+      if (!confirmed) return;
+
+      try {
+        await deleteCategory(editingCategoryId);
+        modal.style.display = "none";
+        await renderCategories();
+      } catch (e) {
+        modalError.textContent = e.message || "تعذر حذف القسم";
+      }
+    });
+
+    // ==================================================================
+    // تشغيل الصفحة: التحقق من صلاحية المشرف، ثم عرض الأقسام
+    // ==================================================================
+    (async () => {
+      const profile = await requireAuth({ adminOnly: true });
+
+      document.getElementById("userEmail").textContent = profile.email;
+      document.getElementById("backLink").addEventListener("click", () => {
+        window.location.href = "index.html";
+      });
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+
+      await renderCategories();
+    })();
+  </script>
+</body>
+</html>

@@ -1,33 +1,61 @@
 /* ================================================================
    ملف التنسيق العام (style.css) — تستخدمه كل الصفحات
-   مقسم لأقسام، كل قسم معلّق عليه وش يتحكم فيه
+   هوية بصرية احترافية: أزرق أساسي #3379BD + خلفية فاتحة أنيقة
    ================================================================ */
 
-/* إعداد عام: يخلي المقاسات (padding/border) تُحسب داخل عرض العنصر نفسه */
+/* ---------- المتغيرات الأساسية (الألوان والقياسات) ----------
+   أي تغيير بلون الهوية يكفي تسويه هنا فقط، وينعكس بكل الموقع */
+:root {
+  --primary: #3379BD;         /* اللون الأساسي (الأزرق) */
+  --primary-dark: #275f94;    /* درجة أغمق — تدرجات وحالة hover */
+  --primary-light: #eaf2fa;   /* درجة فاتحة جدًا — خلفيات وشارات */
+  --primary-lighter: #f4f8fc; /* أفتح درجة — خلفية عامة للصفحة */
+
+  --surface: #ffffff;         /* خلفية البطاقات */
+  --background: #f4f7fb;      /* خلفية الصفحة */
+  --border: #e2e8f0;          /* لون الحدود الخفيفة */
+
+  --text: #1e293b;            /* النص الأساسي */
+  --text-muted: #64748b;      /* نص ثانوي */
+
+  --success: #16a34a;
+  --success-bg: #dcfce7;
+  --danger: #dc2626;
+  --danger-bg: #fee2e2;
+  --warning-bg: #fef3c7;
+  --warning-text: #92400e;
+
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow-sm: 0 1px 3px rgba(30, 41, 59, 0.06);
+  --shadow-md: 0 6px 20px rgba(51, 121, 189, 0.12);
+}
+
 * { box-sizing: border-box; }
 
-/* تنسيق الخلفية والخط العام للموقع + اتجاه الصفحة من اليمين لليسار (RTL) */
 body {
   margin: 0;
-  font-family: "Tahoma", "Segoe UI", sans-serif;
-  background: #f4f6f8;
-  color: #1f2937;
+  font-family: "Tajawal", "Tahoma", "Segoe UI", sans-serif;
+  background: var(--background);
+  color: var(--text);
   direction: rtl;
+  line-height: 1.6;
 }
 
-/* ---------- الشريط العلوي (header) في index.html و admin.html ---------- */
+/* ---------- الشريط العلوي (header) في كل الصفحات ---------- */
 header {
-  background: #0f766e;        /* لون خلفية الشريط — غيّره هنا لو تبي لون تاني */
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: #fff;
-  padding: 16px 24px;
+  padding: 18px 28px;
   display: flex;
-  flex-wrap: wrap;            /* يسمح للشريط يلتف لسطرين لو المساحة ضاقت (جوال) */
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  box-shadow: var(--shadow-md);
 }
-header h1 { font-size: 18px; margin: 0; }
-header .user-info { font-size: 14px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+header h1 { font-size: 19px; font-weight: 700; margin: 0; letter-spacing: 0.2px; }
+header .user-info { font-size: 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
 /* شاشات صغيرة جدًا: نخلي العنوان والأزرار كل وحدة بسطر مستقل بعرض كامل */
 @media (max-width: 420px) {
@@ -36,147 +64,179 @@ header .user-info { font-size: 14px; display: flex; flex-wrap: wrap; gap: 12px; 
   header .user-info { width: 100%; justify-content: center; }
 }
 
-/* ---------- الأزرار العامة (تسجيل دخول، خروج، لوحة المشرف...) ---------- */
+/* ---------- الأزرار العامة ---------- */
 button {
   cursor: pointer;
   border: none;
-  border-radius: 8px;
-  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  padding: 9px 18px;
   font-size: 14px;
-  background: #0f766e;        /* لون الزر الأساسي */
+  font-weight: 600;
+  font-family: inherit;
+  background: var(--primary);
   color: #fff;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
-button.secondary { background: #e5e7eb; color: #1f2937; } /* زر ثانوي (رمادي) */
-button:hover { opacity: 0.9; }
+button:hover { background: var(--primary-dark); box-shadow: 0 4px 12px rgba(51, 121, 189, 0.25); }
+button:active { transform: translateY(1px); }
+
+button.secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none; }
+
+/* أزرار ثانوية داخل البطاقات (خلفية فاتحة، مو بالشريط العلوي) */
+.main button.secondary {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  border: 1px solid var(--border);
+}
+.main button.secondary:hover { background: #ddeaf6; }
 
 /* ---------- صندوق صفحة تسجيل الدخول (login.html) ---------- */
-.container { max-width: 480px; margin: 60px auto; padding: 24px; }
+.container { max-width: 440px; margin: 70px auto; padding: 24px; }
 .card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 32px 28px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
 }
-.card h2 { margin-top: 0; font-size: 18px; }
+.card h2 { margin-top: 0; font-size: 20px; font-weight: 700; color: var(--primary-dark); }
 
-/* حقول الإدخال (البريد، كلمة المرور) */
-.field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
-.field label { font-size: 13px; color: #4b5563; }
+/* حقول الإدخال (البريد، كلمة المرور، اسم القسم...) */
+.field { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
 .field input {
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 14px;
+  font-family: inherit;
+  background: #fbfcfe;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(51, 121, 189, 0.15);
 }
 
-/* رسائل الخطأ والنجاح تحت النموذج */
-.error { color: #dc2626; font-size: 13px; min-height: 18px; }
-.success { color: #16a34a; font-size: 13px; min-height: 18px; }
+/* رسائل الخطأ والنجاح */
+.error { color: var(--danger); font-size: 13px; min-height: 18px; }
+.success { color: var(--success); font-size: 13px; min-height: 18px; }
 
-/* زر نصي بسيط (مثل "ما عندك حساب؟ سجّل حساب جديد") */
+/* زر نصي بسيط */
 .link-btn {
   background: none;
-  color: #0f766e;
+  color: var(--primary);
   padding: 0;
   font-size: 13px;
+  font-weight: 600;
   text-decoration: underline;
 }
 
 .center { text-align: center; }
 
 /* ---------- محتوى الصفحة الرئيسية بعد الشريط العلوي ---------- */
-.main { padding: 24px; max-width: 960px; margin: 0 auto; }
+.main { padding: 28px 24px; max-width: 1000px; margin: 0 auto; }
+.main h2 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
 
-/* شارة نوع الحساب (زائر / مشرف) بجانب اسم المستخدم */
+/* شارة نوع الحساب (زائر / مشرف) */
 .badge {
   font-size: 12px;
-  padding: 2px 10px;
+  font-weight: 700;
+  padding: 3px 12px;
   border-radius: 999px;
-  background: #d1fae5;   /* لون شارة "زائر" (أخضر فاتح) */
-  color: #065f46;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
-.badge.admin { background: #fef3c7; color: #92400e; } /* لون شارة "مشرف" (أصفر) */
+.badge.admin { background: #fde68a; color: #78350f; }
 
 /* ================================================================
-   قسم إدارة الأقسام (Categories) — يُستخدم في admin.html
+   قسم إدارة الأقسام (Categories) — يُستخدم في admin.html و index.html
    ================================================================ */
 
-/* شبكة مربعات الأقسام */
 .categories-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 18px;
   margin-top: 20px;
 }
 
-/* بطاقة/مربع القسم الواحد */
 .category-card {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-bottom: 10px;
+  padding-bottom: 12px;
   position: relative;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
+.category-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
-/* منطقة عرض الصورة أو الأيقونة أعلى المربع */
 .category-visual {
   width: 100%;
   height: 100px;
-  background: #f1f5f9;
+  background: var(--primary-lighter);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
 .category-visual img { width: 100%; height: 100%; object-fit: cover; }
-.category-visual .icon-text { font-size: 40px; }
+.category-visual .icon-text { font-size: 42px; }
 
-.category-name { margin-top: 8px; font-size: 14px; font-weight: bold; text-align: center; padding: 0 8px; }
+.category-name { margin-top: 10px; font-size: 14px; font-weight: 700; text-align: center; padding: 0 8px; }
 
-/* أزرار تعديل/حذف تظهر أسفل كل مربع */
-.category-actions { display: flex; gap: 8px; margin-top: 8px; }
-.category-actions button { padding: 4px 10px; font-size: 12px; }
-.category-actions .delete-btn { background: #fee2e2; color: #b91c1c; }
+.category-actions { display: flex; gap: 8px; margin-top: 10px; }
+.category-actions button { padding: 5px 14px; font-size: 12px; }
 
 /* زر "إضافة قسم جديد" بشكل مربع منقط */
 .add-category-card {
-  border: 2px dashed #cbd5e1;
-  border-radius: 12px;
-  min-height: 150px;
+  border: 2px dashed #b9cfe6;
+  border-radius: var(--radius);
+  min-height: 160px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  color: #64748b;
+  font-weight: 600;
+  color: var(--primary);
   cursor: pointer;
-  background: transparent;
+  background: var(--primary-lighter);
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
-.add-category-card:hover { background: #f8fafc; }
+.add-category-card:hover { background: var(--primary-light); border-color: var(--primary); }
 
 /* ---------- النافذة المنبثقة (Modal) لإضافة/تعديل قسم ---------- */
 .modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(15, 23, 42, 0.45);
   display: flex; align-items: center; justify-content: center;
   z-index: 50;
+  padding: 16px;
 }
 .modal-box {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 420px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 28px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
 }
-.modal-box h3 { margin-top: 0; }
+.modal-box h3 { margin-top: 0; font-size: 18px; font-weight: 700; color: var(--primary-dark); }
 
-/* أزرار اختيار نوع الصورة (رفع صورة / أيقونة يدوية) */
+/* أزرار اختيار نوع الصورة (ما زالت موجودة بالـ CSS احتياطًا لو استُخدمت لاحقًا) */
 .image-type-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
-.image-type-toggle button { flex: 1; background: #e5e7eb; color: #1f2937; }
-.image-type-toggle button.active { background: #0f766e; color: #fff; }
+.image-type-toggle button { flex: 1; background: var(--primary-light); color: var(--primary-dark); }
+.image-type-toggle button.active { background: var(--primary); color: #fff; }
 
-.modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 18px; }
 .modal-actions button { flex: 1; }

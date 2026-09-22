@@ -16,8 +16,13 @@
     <div class="user-info">
       <!-- شارة تبيّن نوع الحساب: "زائر" أو "مشرف" -->
       <span class="badge" id="roleBadge"></span>
-      <!-- هذا الزر يظهر فقط لو المستخدم مشرف (يتحكم فيه كود JS تحت) -->
-      <button id="adminLink" class="secondary" style="display:none">لوحة المشرف</button>
+      <!-- نفس مفتاح "وضع المفتش" اللي بلوحة المشرف — يظهر فقط لو المستخدم مشرف
+           هنا يكون مفعّل دائمًا (لأنك فعليًا بوضع المفتش الآن)، وتعطيله يرجعك للوحة المشرف -->
+      <label class="ios-toggle" id="inspectorModeWrap" style="display:none">
+        <span class="toggle-label">وضع المفتش</span>
+        <input type="checkbox" id="inspectorModeToggle" checked />
+        <span class="toggle-slider"></span>
+      </label>
       <button id="logoutBtn" class="secondary">خروج</button>
     </div>
   </header>
@@ -100,11 +105,14 @@
       roleBadge.textContent = profile.role === "admin" ? "مشرف" : "زائر";
       if (profile.role === "admin") {
         roleBadge.classList.add("admin");
-        document.getElementById("adminLink").style.display = "inline-block";
+        document.getElementById("inspectorModeWrap").style.display = "flex";
       }
 
-      document.getElementById("adminLink").addEventListener("click", () => {
-        window.location.href = "admin.html";
+      // تعطيل المفتاح (لأنه مفعّل افتراضيًا) يرجّع المشرف للوحة المشرف
+      document.getElementById("inspectorModeToggle").addEventListener("change", (e) => {
+        if (!e.target.checked) {
+          window.location.href = "admin.html";
+        }
       });
       document.getElementById("logoutBtn").addEventListener("click", logout);
 

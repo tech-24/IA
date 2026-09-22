@@ -71,6 +71,9 @@
   <script src="auth.js"></script>
   <script src="image-utils.js"></script>
   <script src="categories.js"></script>
+  <script src="lists.js"></script>
+  <script src="items.js"></script>
+  <script src="cases.js"></script>
   <script>
     // ==================================================================
     // متغيرات تتبع حالة النافذة المنبثقة
@@ -198,7 +201,11 @@
       try {
         if (editingCategoryId) {
           // وضع تعديل: لو ما اختار ملف جديد، تبقى الصورة القديمة كما هي
+          const oldCategory = categoriesCache.find((c) => c.id === editingCategoryId);
+          const oldImageUrl = oldCategory ? oldCategory.image_value : null;
           const updated = await updateCategory(editingCategoryId, { name, image_type: "upload", file });
+          // لو رفع صورة جديدة فعلاً، نحذف الصورة القديمة من التخزين عشان ما تضل يتيمة بدون فائدة
+          if (file && oldImageUrl) await deleteCategoryImageFile(oldImageUrl);
           // نحدّث الصف بالنسخة المحلية مباشرة بدل إعادة جلب كل الأقسام من الخادم
           const index = categoriesCache.findIndex((c) => c.id === editingCategoryId);
           if (index !== -1) categoriesCache[index] = updated;
@@ -225,7 +232,20 @@
       if (!confirmed) return;
 
       try {
+        const category = categoriesCache.find((c) => c.id === editingCategoryId);
+
+        // تنظيف عميق: نجلب كل قوائم القسم، وكل بنود كل قائمة، ونحذف صور حالات كل بند من التخزين
+        const lists = await fetchLists(editingCategoryId);
+        for (const list of lists) {
+          const items = await fetchItems(list.id);
+          for (const item of items) {
+            await deleteAllCaseImagesForItem(item.id);
+          }
+        }
+
         await deleteCategory(editingCategoryId);
+        // نحذف صورة القسم فعليًا من التخزين أيضًا، بعد ما نتأكد إن حذف الصف نجح
+        if (category && category.image_value) await deleteCategoryImageFile(category.image_value);
         // نحذف الصف من النسخة المحلية مباشرة بدل إعادة جلب كل الأقسام من الخادم
         categoriesCache = categoriesCache.filter((c) => c.id !== editingCategoryId);
         modal.style.display = "none";

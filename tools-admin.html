@@ -32,8 +32,21 @@
       </div>
 
       <div class="field">
+        <label>نوع الرابط</label>
+        <div class="image-type-toggle">
+          <button type="button" id="linkTypeBtn" class="active">رابط خارجي</button>
+          <button type="button" id="fileTypeBtn">رفع ملف</button>
+        </div>
+      </div>
+
+      <div class="field" id="toolUrlField">
         <label for="toolUrl">الرابط</label>
         <input type="url" id="toolUrl" placeholder="https://" />
+      </div>
+
+      <div class="field" id="toolFileField" style="display:none">
+        <label for="toolUrlFile">اختر ملف (PDF أو أي مستند)</label>
+        <input type="file" id="toolUrlFile" />
       </div>
 
       <div class="field">
@@ -107,15 +120,32 @@
     const toolModalTitle = document.getElementById("toolModalTitle");
     const toolModalError = document.getElementById("toolModalError");
     const deleteToolBtn = document.getElementById("deleteToolBtn");
+    const linkTypeBtn = document.getElementById("linkTypeBtn");
+    const fileTypeBtn = document.getElementById("fileTypeBtn");
+    const toolUrlField = document.getElementById("toolUrlField");
+    const toolFileField = document.getElementById("toolFileField");
+    let currentUrlType = "link"; // "link" أو "file" — أي وضع مفعّل حاليًا بالنافذة
+
+    function setUrlType(type) {
+      currentUrlType = type;
+      linkTypeBtn.classList.toggle("active", type === "link");
+      fileTypeBtn.classList.toggle("active", type === "file");
+      toolUrlField.style.display = type === "link" ? "block" : "none";
+      toolFileField.style.display = type === "file" ? "block" : "none";
+    }
+    linkTypeBtn.addEventListener("click", () => setUrlType("link"));
+    fileTypeBtn.addEventListener("click", () => setUrlType("file"));
 
     function openAddToolModal() {
       editingToolId = null;
       toolModalTitle.textContent = "إضافة أداة جديدة";
       document.getElementById("toolName").value = "";
       document.getElementById("toolUrl").value = "";
+      document.getElementById("toolUrlFile").value = "";
       document.getElementById("toolFile").value = "";
       toolModalError.textContent = "";
       deleteToolBtn.style.display = "none";
+      setUrlType("link");
       toolModal.style.display = "flex";
     }
 
@@ -124,9 +154,11 @@
       toolModalTitle.textContent = "تعديل الأداة";
       document.getElementById("toolName").value = tool.name;
       document.getElementById("toolUrl").value = tool.url;
+      document.getElementById("toolUrlFile").value = "";
       document.getElementById("toolFile").value = "";
       toolModalError.textContent = "";
       deleteToolBtn.style.display = "inline-block";
+      setUrlType("link"); // نعرض الرابط الحالي دائمًا بوضع "رابط"، ولو رفع ملف جديد يستبدله
       toolModal.style.display = "flex";
     }
 
@@ -137,10 +169,14 @@
     document.getElementById("saveToolBtn").addEventListener("click", async () => {
       const name = document.getElementById("toolName").value.trim();
       const url = document.getElementById("toolUrl").value.trim();
+      const urlFile = document.getElementById("toolUrlFile").files[0];
       const file = document.getElementById("toolFile").files[0];
 
-      if (!name || !url) {
-        toolModalError.textContent = "اكتب اسم الأداة والرابط";
+      const hasLink = currentUrlType === "link" && url;
+      const hasFile = currentUrlType === "file" && urlFile;
+
+      if (!name || (!hasLink && !hasFile && !editingToolId)) {
+        toolModalError.textContent = "اكتب اسم الأداة، واختر رابط أو ملف";
         return;
       }
 
@@ -148,11 +184,25 @@
       saveBtn.disabled = true;
       try {
         if (editingToolId) {
-          const updated = await updateTool(editingToolId, { name, url, file });
+          const oldTool = allTools.find((t) => t.id === editingToolId);
+          const updated = await updateTool(editingToolId, {
+            name,
+            url: hasLink ? url : null,
+            urlFile: hasFile ? urlFile : null,
+            file,
+          });
+          // لو رفع أيقونة أو ملف جديد يستبدل القديم، نحذف القديم فعليًا من التخزين
+          if (file && oldTool.image_value) await deleteToolStorageFile(oldTool.image_value, TOOL_BUCKET);
+          if (hasFile && oldTool.url) await deleteToolStorageFile(oldTool.url, TOOL_FILE_BUCKET);
           const index = allTools.findIndex((t) => t.id === editingToolId);
           if (index !== -1) allTools[index] = updated;
         } else {
-          const created = await addTool({ name, url, file });
+          const created = await addTool({
+            name,
+            url: hasLink ? url : null,
+            urlFile: hasFile ? urlFile : null,
+            file,
+          });
           allTools.push(created);
         }
         toolModal.style.display = "none";
@@ -167,7 +217,13 @@
     deleteToolBtn.addEventListener("click", async () => {
       const confirmed = confirm("هل أنت متأكد من حذف هذي الأداة؟");
       if (!confirmed) return;
+      const tool = allTools.find((t) => t.id === editingToolId);
       await deleteTool(editingToolId);
+      // نحذف الأيقونة وملف الأداة (لو موجودين) فعليًا من التخزين
+      if (tool) {
+        if (tool.image_value) await deleteToolStorageFile(tool.image_value, TOOL_BUCKET);
+        if (tool.url) await deleteToolStorageFile(tool.url, TOOL_FILE_BUCKET);
+      }
       allTools = allTools.filter((t) => t.id !== editingToolId);
       toolModal.style.display = "none";
       renderTools();

@@ -9,6 +9,34 @@
 const CASE_BUCKET = "case-images";
 
 // -------------------------------------------------
+// حذف ملف صورة حالة فعليًا من Supabase Storage (وليس بس صف قاعدة البيانات)
+// تُستدعى عند حذف صورة واحدة، أو حذف الحالة كاملة (لكل صورها)
+// -------------------------------------------------
+async function deleteCaseImageFile(imageUrl) {
+  const fileName = extractStorageFileName(imageUrl);
+  if (!fileName) return;
+  try {
+    await supabaseClient.storage.from(CASE_BUCKET).remove([fileName]);
+  } catch (e) {
+    // تجاهل بصمت — حذف صف قاعدة البيانات أهم وما نوقفه بسبب فشل حذف الملف
+  }
+}
+
+// -------------------------------------------------
+// حذف كل صور حالات بند معيّن فعليًا من التخزين (يجلب حالاته وصورها ثم يحذفها)
+// تُستخدم قبل حذف بند، أو قبل حذف قائمة/قسم كامل (لكل بنوده)
+// عشان ما تضل الصور "يتيمة" بالتخزين بعد حذف البند أو ما فوقه
+// -------------------------------------------------
+async function deleteAllCaseImagesForItem(itemId) {
+  const cases = await fetchCases(itemId);
+  for (const c of cases) {
+    for (const img of c.case_images || []) {
+      await deleteCaseImageFile(img.image_url);
+    }
+  }
+}
+
+// -------------------------------------------------
 // جلب كل حالات بند معيّن، مع صورها بنفس الاستعلام (case_images)
 // بفضل الربط بقاعدة البيانات، ما نحتاج استعلام منفصل لكل حالة
 // -------------------------------------------------

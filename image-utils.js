@@ -62,3 +62,14 @@ function compressImage(file, maxDimension = 1280, quality = 0.75) {
     reader.readAsDataURL(file);
   });
 }
+
+// -------------------------------------------------
+// تستخرج اسم الملف من رابط Supabase Storage العام
+// (الرابط شكله https://xxx.supabase.co/storage/v1/object/public/<bucket>/<filename>)
+// تُستخدم قبل حذف أي ملف فعليًا من التخزين، عشان نعرف اسمه بالضبط
+// -------------------------------------------------
+function extractStorageFileName(publicUrl) {
+  if (!publicUrl) return null;
+  const parts = publicUrl.split("/");
+  return parts[parts.length - 1] || null;
+}

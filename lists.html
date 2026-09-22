@@ -89,6 +89,8 @@
   <script src="categories.js"></script>
   <script src="lists.js"></script>
   <script src="items.js"></script>
+  <script src="image-utils.js"></script>
+  <script src="cases.js"></script>
   <script>
     // ==================================================================
     // قراءة رقم القسم من رابط الصفحة (?category_id=...)
@@ -281,6 +283,13 @@
     document.getElementById("deleteListBtn").addEventListener("click", async () => {
       const confirmed = confirm("هل أنت متأكد من حذف هذي القائمة؟ سيُحذف معها كل بنودها وحالاتها.");
       if (!confirmed) return;
+
+      // نجلب بنود القائمة (من الذاكرة لو موجودة، أو من الخادم) وننظف صور حالاتها من التخزين
+      const items = itemsCacheByList[activeListId] || (await fetchItems(activeListId));
+      for (const item of items) {
+        await deleteAllCaseImagesForItem(item.id);
+      }
+
       await deleteList(activeListId);
       // نحذف القائمة وبنودها من الذاكرة المحلية مباشرة بدل إعادة الجلب
       allLists = allLists.filter((l) => l.id !== activeListId);
@@ -351,8 +360,11 @@
     });
 
     deleteItemBtn.addEventListener("click", async () => {
-      const confirmed = confirm("هل أنت متأكد من حذف هذا البند؟ سيُحذف معه كل حالاته وصوره.");
-      if (!confirmed) return;
+      // حماية إضافية: لازم يكتب كلمة "حذف" بالضبط عشان يتأكد الحذف (مو بس ضغطة تأكيد عادية)
+      const typed = prompt('حذف البند يمسح كل حالاته وصوره نهائيًا ولا يمكن التراجع.\nللتأكيد، اكتب كلمة "حذف" بالضبط:');
+      if (typed !== "حذف") return;
+
+      await deleteAllCaseImagesForItem(editingItemId); // تنظيف صور حالات البند من التخزين قبل حذفه
       await deleteItem(editingItemId);
       itemsCacheByList[activeListId] = itemsCacheByList[activeListId].filter((i) => i.id !== editingItemId);
       itemModal.style.display = "none";

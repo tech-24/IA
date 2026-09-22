@@ -51,6 +51,21 @@ async function uploadCategoryImage(file) {
 }
 
 // -------------------------------------------------
+// حذف ملف صورة قسم فعليًا من Supabase Storage (وليس بس صف قاعدة البيانات)
+// تُستدعى عند استبدال صورة قسم بصورة جديدة، أو حذف القسم نفسه
+// لو فشلت (مثلاً الملف مو موجود أصلاً) نتجاهل الخطأ بصمت، لأن المهم حذف صف القسم نفسه
+// -------------------------------------------------
+async function deleteCategoryImageFile(imageUrl) {
+  const fileName = extractStorageFileName(imageUrl);
+  if (!fileName) return;
+  try {
+    await supabaseClient.storage.from(CATEGORY_BUCKET).remove([fileName]);
+  } catch (e) {
+    // تجاهل بصمت — حذف صف قاعدة البيانات أهم وما نوقفه بسبب فشل حذف الملف
+  }
+}
+
+// -------------------------------------------------
 // إضافة قسم جديد
 // image_type: "upload" (فيه ملف صورة) أو "icon" (نص/إيموجي يدوي)
 // ترجع الصف المُضاف نفسه (بدل إعادة تحميل كل الأقسام من الخادم مرة ثانية)

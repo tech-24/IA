@@ -189,6 +189,7 @@
         `;
         slot.querySelector(".case-image-remove").addEventListener("click", async () => {
           await deleteCaseImage(img.id);
+          await deleteCaseImageFile(img.image_url); // حذف الملف فعليًا من التخزين، مو بس صف قاعدة البيانات
           current.case_images = current.case_images.filter((i) => i.id !== img.id);
           renderImagesRow();
           renderCases(); // تحديث الصورة المصغّرة بالشبكة لو كانت هي أول صورة
@@ -273,7 +274,14 @@
     deleteCaseBtn.addEventListener("click", async () => {
       const confirmed = confirm("هل أنت متأكد من حذف هذي الحالة وكل صورها؟");
       if (!confirmed) return;
+      const current = allCases.find((c) => c.id === editingCaseId);
       await deleteCase(editingCaseId);
+      // نحذف كل صور الحالة فعليًا من التخزين (مو بس صفوفها بقاعدة البيانات)
+      if (current && current.case_images) {
+        for (const img of current.case_images) {
+          await deleteCaseImageFile(img.image_url);
+        }
+      }
       allCases = allCases.filter((c) => c.id !== editingCaseId);
       caseModal.style.display = "none";
       renderCases();

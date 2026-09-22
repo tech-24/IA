@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>داش بورد رصد البنود</title>
+  <title>مساعد المفتش</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <!-- ==================== الشريط العلوي ==================== -->
   <header>
-    <h1>داش بورد رصد البنود</h1>
+    <h1>مساعد المفتش</h1>
     <div class="user-info">
-      <span id="userEmail"></span>
       <!-- شارة تبيّن نوع الحساب: "زائر" أو "مشرف" -->
       <span class="badge" id="roleBadge"></span>
       <!-- هذا الزر يظهر فقط لو المستخدم مشرف (يتحكم فيه كود JS تحت) -->
@@ -85,7 +84,6 @@
       // requireAuth() بدون adminOnly = يسمح لأي مستخدم مسجل دخول (زائر أو مشرف)
       const profile = await requireAuth();
 
-      document.getElementById("userEmail").textContent = profile.email;
       const roleBadge = document.getElementById("roleBadge");
       roleBadge.textContent = profile.role === "admin" ? "مشرف" : "زائر";
       if (profile.role === "admin") {

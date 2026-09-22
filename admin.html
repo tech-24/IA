@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>لوحة المشرف — داش بورد رصد البنود</title>
+  <title>لوحة المشرف — مساعد المفتش</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -11,8 +11,7 @@
   <header>
     <h1>لوحة المشرف</h1>
     <div class="user-info">
-      <span id="userEmail"></span>
-      <button id="backLink" class="secondary">الرئيسية</button>
+      <button id="backLink" class="secondary">تبديل لوضع المفتش</button>
       <button id="logoutBtn" class="secondary">خروج</button>
     </div>
   </header>
@@ -34,20 +33,10 @@
         <input type="text" id="categoryName" placeholder="مثال: صحي" />
       </div>
 
-      <!-- اختيار طريقة الصورة: رفع ملف، أو كتابة أيقونة/إيموجي يدويًا -->
-      <div class="image-type-toggle">
-        <button type="button" id="uploadTypeBtn" class="active">رفع صورة</button>
-        <button type="button" id="iconTypeBtn">أيقونة يدوية</button>
-      </div>
-
+      <!-- إرفاق أيقونة/صورة للقسم — اختياري، لو تُرك فارغًا يظهر رمز افتراضي ❔ -->
       <div class="field" id="uploadField">
-        <label for="categoryFile">اختر صورة من جهازك</label>
+        <label for="categoryFile">إرفاق أيقونة (اختياري)</label>
         <input type="file" id="categoryFile" accept="image/*" />
-      </div>
-
-      <div class="field" id="iconField" style="display:none">
-        <label for="categoryIcon">اكتب رمز/إيموجي يمثل القسم</label>
-        <input type="text" id="categoryIcon" placeholder="مثال: 🏥" maxlength="4" />
       </div>
 
       <div class="error" id="modalError"></div>
@@ -72,18 +61,12 @@
     // ==================================================================
     // متغيرات تتبع حالة النافذة المنبثقة
     // ==================================================================
-    let currentImageType = "upload"; // "upload" أو "icon" — أي وضع مفعّل حاليًا بالنافذة
     let editingCategoryId = null;    // null = وضع إضافة، غير null = وضع تعديل (قيمته id القسم)
-    let editingCategory = null;      // بيانات القسم الحالي وقت التعديل (نحتاجها لو ما غيّر الصورة)
 
     const grid = document.getElementById("categoriesGrid");
     const modal = document.getElementById("categoryModal");
     const modalTitle = document.getElementById("modalTitle");
     const modalError = document.getElementById("modalError");
-    const uploadTypeBtn = document.getElementById("uploadTypeBtn");
-    const iconTypeBtn = document.getElementById("iconTypeBtn");
-    const uploadField = document.getElementById("uploadField");
-    const iconField = document.getElementById("iconField");
     const deleteCategoryBtn = document.getElementById("deleteCategoryBtn");
 
     // -------------------------------------------------
@@ -137,14 +120,11 @@
     // -------------------------------------------------
     function openAddModal() {
       editingCategoryId = null;
-      editingCategory = null;
       modalTitle.textContent = "إضافة قسم جديد";
       document.getElementById("categoryName").value = "";
       document.getElementById("categoryFile").value = "";
-      document.getElementById("categoryIcon").value = "";
       modalError.textContent = "";
       deleteCategoryBtn.style.display = "none";
-      setImageType("upload");
       modal.style.display = "flex";
     }
 
@@ -153,29 +133,13 @@
     // -------------------------------------------------
     function openEditModal(cat) {
       editingCategoryId = cat.id;
-      editingCategory = cat;
       modalTitle.textContent = "تعديل القسم";
       document.getElementById("categoryName").value = cat.name;
       document.getElementById("categoryFile").value = "";
-      document.getElementById("categoryIcon").value = cat.image_type === "icon" ? cat.image_value : "";
       modalError.textContent = "";
       deleteCategoryBtn.style.display = "inline-block";
-      setImageType(cat.image_type || "upload");
       modal.style.display = "flex";
     }
-
-    // -------------------------------------------------
-    // التبديل بين وضعي الصورة (رفع صورة / أيقونة يدوية) داخل النافذة
-    // -------------------------------------------------
-    function setImageType(type) {
-      currentImageType = type;
-      uploadTypeBtn.classList.toggle("active", type === "upload");
-      iconTypeBtn.classList.toggle("active", type === "icon");
-      uploadField.style.display = type === "upload" ? "block" : "none";
-      iconField.style.display = type === "icon" ? "block" : "none";
-    }
-    uploadTypeBtn.addEventListener("click", () => setImageType("upload"));
-    iconTypeBtn.addEventListener("click", () => setImageType("icon"));
 
     // -------------------------------------------------
     // إغلاق النافذة
@@ -186,40 +150,26 @@
 
     // -------------------------------------------------
     // حفظ (إضافة أو تعديل حسب editingCategoryId)
+    // الصورة اختيارية دائمًا — لو ما اختار المشرف ملف يُحفظ القسم بدون صورة
+    // ويظهر رمز افتراضي ❔ مكانها (التعامل مع هذا موجود بدالة renderCategories)
     // -------------------------------------------------
     document.getElementById("saveCategoryBtn").addEventListener("click", async () => {
       modalError.textContent = "";
       const name = document.getElementById("categoryName").value.trim();
       const file = document.getElementById("categoryFile").files[0];
-      const iconValue = document.getElementById("categoryIcon").value.trim();
 
       if (!name) {
         modalError.textContent = "اكتب اسم القسم";
         return;
       }
-      if (currentImageType === "upload" && !file && !editingCategoryId) {
-        modalError.textContent = "اختر صورة للقسم";
-        return;
-      }
-      if (currentImageType === "icon" && !iconValue) {
-        modalError.textContent = "اكتب رمز/إيموجي للقسم";
-        return;
-      }
 
       try {
         if (editingCategoryId) {
-          // وضع تعديل: keepExistingImage = true لو ما اختار ملف/أيقونة جديدة
-          const keepExistingImage = currentImageType === "icon" && !iconValue;
-          await updateCategory(editingCategoryId, {
-            name,
-            image_type: currentImageType,
-            file,
-            iconValue,
-            keepExistingImage,
-          });
+          // وضع تعديل: لو ما اختار ملف جديد، تبقى الصورة القديمة كما هي
+          await updateCategory(editingCategoryId, { name, image_type: "upload", file });
         } else {
           // وضع إضافة
-          await addCategory({ name, image_type: currentImageType, file, iconValue });
+          await addCategory({ name, image_type: "upload", file });
         }
         modal.style.display = "none";
         await renderCategories();
@@ -251,7 +201,6 @@
     (async () => {
       const profile = await requireAuth({ adminOnly: true });
 
-      document.getElementById("userEmail").textContent = profile.email;
       document.getElementById("backLink").addEventListener("click", () => {
         window.location.href = "index.html";
       });

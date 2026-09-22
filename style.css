@@ -21,11 +21,20 @@ header {
   color: #fff;
   padding: 16px 24px;
   display: flex;
+  flex-wrap: wrap;            /* يسمح للشريط يلتف لسطرين لو المساحة ضاقت (جوال) */
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
 }
 header h1 { font-size: 18px; margin: 0; }
-header .user-info { font-size: 14px; display: flex; gap: 12px; align-items: center; }
+header .user-info { font-size: 14px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+/* شاشات صغيرة جدًا: نخلي العنوان والأزرار كل وحدة بسطر مستقل بعرض كامل */
+@media (max-width: 420px) {
+  header { justify-content: center; text-align: center; }
+  header h1 { width: 100%; text-align: center; }
+  header .user-info { width: 100%; justify-content: center; }
+}
 
 /* ---------- الأزرار العامة (تسجيل دخول، خروج، لوحة المشرف...) ---------- */
 button {

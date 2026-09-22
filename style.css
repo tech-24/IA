@@ -262,16 +262,25 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
    overflow-x: auto يمنح السحب باللمس (سوايب) يمين/يسار على الجوال تلقائيًا
    بدون أي كود جافاسكربت إضافي، وبنفس الوقت التبويبات قابلة للضغط المباشر */
 .lists-tabs {
+  position: fixed;
+  bottom: 0; right: 0; left: 0;
   display: flex;
-  flex-wrap: wrap; /* التبويبات اللي ما تسع بالسطر تنزل لسطر جديد بدل الازدحام */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
   gap: 8px;
-  padding: 4px 2px 12px;
-  margin-top: 16px;
-  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+  box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.06);
+  z-index: 40;
 }
+.lists-tabs::-webkit-scrollbar { display: none; }
 
 .list-tab {
   flex: 0 0 auto;
+  scroll-snap-align: start;
   padding: 9px 18px;
   border-radius: 999px;
   font-size: 14px;

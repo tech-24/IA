@@ -193,7 +193,11 @@
           });
           // لو رفع أيقونة أو ملف جديد يستبدل القديم، نحذف القديم فعليًا من التخزين
           if (file && oldTool.image_value) await deleteToolStorageFile(oldTool.image_value, TOOL_BUCKET);
-          if (hasFile && oldTool.url) await deleteToolStorageFile(oldTool.url, TOOL_FILE_BUCKET);
+          // نحذف ملف الرابط القديم فعليًا لو كان محفوظ عندنا بالتخزين، سواء استُبدل بملف جديد أو برابط خارجي
+          const oldUrlWasStoredFile = oldTool.url && oldTool.url.includes(SUPABASE_URL);
+          if ((hasFile || hasLink) && oldUrlWasStoredFile) {
+            await deleteToolStorageFile(oldTool.url, TOOL_FILE_BUCKET);
+          }
           const index = allTools.findIndex((t) => t.id === editingToolId);
           if (index !== -1) allTools[index] = updated;
         } else {

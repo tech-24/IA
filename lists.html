@@ -64,7 +64,14 @@
       <h3 id="itemModalTitle">إضافة بند جديد</h3>
       <div class="field">
         <label for="itemName">اسم البند</label>
-        <input type="text" id="itemName" placeholder="مثال: النظافة العامة" />
+        <input type="text" id="itemName" />
+      </div>
+      <!-- خيار إيقاف البند مؤقتًا حسب التوجيه — يظل ظاهرًا للمفتش لكن بشكل مختلف (رمادي مشطوب) -->
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer">
+          <input type="checkbox" id="itemSuspended" style="width:18px;height:18px" />
+          موقوف حسب التوجيه
+        </label>
       </div>
       <div class="error" id="itemModalError"></div>
       <div class="modal-actions">
@@ -172,7 +179,7 @@
 
       items.forEach((item) => {
         const row = document.createElement("div");
-        row.className = "item-row";
+        row.className = "item-row" + (item.is_suspended ? " item-suspended" : "");
         row.innerHTML = `<span class="item-name">${item.name}</span>`;
 
         const editBtn = document.createElement("button");
@@ -296,6 +303,7 @@
       editingItemId = null;
       itemModalTitle.textContent = "إضافة بند جديد";
       document.getElementById("itemName").value = "";
+      document.getElementById("itemSuspended").checked = false;
       itemModalError.textContent = "";
       deleteItemBtn.style.display = "none";
       itemModal.style.display = "flex";
@@ -305,6 +313,7 @@
       editingItemId = item.id;
       itemModalTitle.textContent = "تعديل البند";
       document.getElementById("itemName").value = item.name;
+      document.getElementById("itemSuspended").checked = !!item.is_suspended;
       itemModalError.textContent = "";
       deleteItemBtn.style.display = "inline-block";
       itemModal.style.display = "flex";
@@ -322,14 +331,15 @@
       }
       const saveBtn = document.getElementById("saveItemBtn");
       saveBtn.disabled = true; // يمنع تكرار الضغط والتسبب بإضافة البند أكثر من مرة
+      const is_suspended = document.getElementById("itemSuspended").checked;
       try {
         const items = itemsCacheByList[activeListId];
         if (editingItemId) {
-          const updated = await updateItem(editingItemId, { name });
+          const updated = await updateItem(editingItemId, { name, is_suspended });
           const index = items.findIndex((i) => i.id === editingItemId);
           if (index !== -1) items[index] = updated;
         } else {
-          const created = await addItem({ list_id: activeListId, name });
+          const created = await addItem({ list_id: activeListId, name, is_suspended });
           items.push(created);
         }
         itemModal.style.display = "none";

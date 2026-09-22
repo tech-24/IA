@@ -320,6 +320,13 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 .item-row .item-name { font-weight: 600; font-size: 14px; }
 .item-row button { padding: 5px 14px; font-size: 12px; }
 
+/* بند موقوف حسب التوجيه — رمادي ومشطوب، يبقى ظاهر بالقائمة لكن بشكل مختلف */
+.item-row.item-suspended { background: #f1f3f5; }
+.item-row.item-suspended .item-name {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
 /* زر "إضافة بند جديد" أسفل القائمة */
 .add-item-btn {
   border: 2px dashed #b9cfe6;

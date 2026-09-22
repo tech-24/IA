@@ -32,11 +32,12 @@ async function fetchItems(listId) {
 
 // -------------------------------------------------
 // إضافة بند جديد تحت قائمة معيّنة — ترجع الصف المُضاف نفسه
+// is_suspended: هل البند موقوف حسب التوجيه (افتراضيًا لا)
 // -------------------------------------------------
-async function addItem({ list_id, name }) {
+async function addItem({ list_id, name, is_suspended = false }) {
   const { data, error } = await supabaseClient
     .from("items")
-    .insert({ list_id, name })
+    .insert({ list_id, name, is_suspended })
     .select()
     .single();
   if (error) throw error;
@@ -44,12 +45,12 @@ async function addItem({ list_id, name }) {
 }
 
 // -------------------------------------------------
-// تعديل اسم بند موجود — ترجع الصف بعد التعديل
+// تعديل بند موجود (الاسم وحالة الإيقاف) — ترجع الصف بعد التعديل
 // -------------------------------------------------
-async function updateItem(id, { name }) {
+async function updateItem(id, { name, is_suspended }) {
   const { data, error } = await supabaseClient
     .from("items")
-    .update({ name })
+    .update({ name, is_suspended })
     .eq("id", id)
     .select()
     .single();

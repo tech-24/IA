@@ -544,3 +544,52 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 .tool-card .tool-visual img { width: 100%; height: 100%; object-fit: cover; }
 .tool-card .tool-visual .icon-text { font-size: 36px; }
 .tool-card .tool-name { margin-top: 8px; font-size: 13px; font-weight: 700; text-align: center; padding: 0 6px; }
+
+/* ================================================================
+   مفتاح تبديل بشكل iOS (زي زر تشغيل/إيقاف البلوتوث بالآيفون)
+   ================================================================ */
+.ios-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.ios-toggle input[type="checkbox"] {
+  /* نخفي مربع الاختيار الافتراضي، ونبني شكل المفتاح بالكامل بـ toggle-slider تحت */
+  position: absolute;
+  opacity: 0;
+  width: 0; height: 0;
+}
+
+.ios-toggle .toggle-slider {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+.ios-toggle .toggle-slider::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px; /* بوضع الإيقاف بواجهة RTL، المقبض يبدأ من اليمين */
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: transform 0.2s ease;
+}
+
+.ios-toggle input:checked + .toggle-slider {
+  background: #34c759; /* نفس لون التفعيل بالآيفون */
+}
+.ios-toggle input:checked + .toggle-slider::before {
+  transform: translateX(-18px); /* المقبض ينزلق لليسار عند التفعيل */
+}

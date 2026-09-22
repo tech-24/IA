@@ -12,6 +12,14 @@
 <body>
   <header>
     <h1>لوحة المشرف</h1>
+    <div class="user-info">
+      <label class="ios-toggle">
+        <span class="toggle-label">وضع المفتش</span>
+        <input type="checkbox" id="inspectorModeToggle" />
+        <span class="toggle-slider"></span>
+      </label>
+      <button id="logoutBtn" class="secondary">خروج</button>
+    </div>
   </header>
 
   <div class="main">
@@ -25,8 +33,6 @@
   <nav class="bottom-nav">
     <a href="circulars-admin.html"><span class="nav-icon">📢</span>التعاميم</a>
     <a href="tools-admin.html"><span class="nav-icon">🛠️</span>الأدوات المساعدة</a>
-    <a href="index.html"><span class="nav-icon">👁️</span>وضع المفتش</a>
-    <a href="#" id="logoutNavLink"><span class="nav-icon">🚪</span>خروج</a>
   </nav>
 
   <!-- ==================== النافذة المنبثقة لإضافة/تعديل قسم ====================
@@ -235,10 +241,10 @@
     (async () => {
       const profile = await requireAuth({ adminOnly: true });
 
-      document.getElementById("logoutNavLink").addEventListener("click", (e) => {
-        e.preventDefault();
-        logout();
+      document.getElementById("inspectorModeToggle").addEventListener("change", () => {
+        window.location.href = "index.html";
       });
+      document.getElementById("logoutBtn").addEventListener("click", logout);
 
       await loadCategories();
     })();

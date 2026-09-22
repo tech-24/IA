@@ -103,10 +103,12 @@
       const profile = await requireAuth();
 
       const roleBadge = document.getElementById("roleBadge");
-      roleBadge.textContent = profile.role === "admin" ? "مشرف" : "زائر";
       if (profile.role === "admin") {
-        roleBadge.classList.add("admin");
+        // نخفي الشارة للمشرف لأن مفتاح "وضع المفتش" أصلاً يدل إنه مشرف، وتكرار الكلمة زيادة بدون داعي
+        roleBadge.style.display = "none";
         document.getElementById("inspectorModeWrap").style.display = "flex";
+      } else {
+        roleBadge.textContent = "مفتش";
       }
 
       // تعطيل المفتاح (لأنه مفعّل افتراضيًا) يرجّع المشرف للوحة المشرف

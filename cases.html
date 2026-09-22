@@ -52,6 +52,7 @@
       </div>
 
       <div class="error" id="caseModalError"></div>
+      <div class="success" id="caseModalSuccess"></div>
 
       <div class="modal-actions">
         <button id="saveCaseBtn">حفظ</button>
@@ -68,6 +69,7 @@
   <!-- ترتيب التحميل: config.js ثم auth.js ثم items.js/cases.js -->
   <script src="config.js"></script>
   <script src="auth.js"></script>
+  <script src="image-utils.js"></script>
   <script src="items.js"></script>
   <script src="cases.js"></script>
   <script>
@@ -129,10 +131,21 @@
     const caseModal = document.getElementById("caseModal");
     const caseModalTitle = document.getElementById("caseModalTitle");
     const caseModalError = document.getElementById("caseModalError");
+    const caseModalSuccess = document.getElementById("caseModalSuccess");
     const imagesSection = document.getElementById("imagesSection");
     const caseImagesRow = document.getElementById("caseImagesRow");
     const caseImageInput = document.getElementById("caseImageInput");
     const deleteCaseBtn = document.getElementById("deleteCaseBtn");
+
+    // -------------------------------------------------
+    // تعرض رسالة نجاح مؤقتة (تختفي تلقائيًا بعد ثانيتين) — تأكيد بصري إن الحفظ تم فعلًا
+    // -------------------------------------------------
+    function showSuccess(message) {
+      caseModalSuccess.textContent = message;
+      setTimeout(() => {
+        if (caseModalSuccess.textContent === message) caseModalSuccess.textContent = "";
+      }, 2000);
+    }
 
     function openAddCaseModal() {
       editingCaseId = null;
@@ -140,6 +153,7 @@
       document.getElementById("caseName").value = "";
       document.getElementById("caseMethod").value = "";
       caseModalError.textContent = "";
+      caseModalSuccess.textContent = "";
       imagesSection.style.display = "none"; // ما فيه حالة بعد، ما نقدر نرفع صور
       deleteCaseBtn.style.display = "none";
       caseModal.style.display = "flex";
@@ -151,6 +165,7 @@
       document.getElementById("caseName").value = c.name;
       document.getElementById("caseMethod").value = c.monitoring_method || "";
       caseModalError.textContent = "";
+      caseModalSuccess.textContent = "";
       imagesSection.style.display = "block";
       renderImagesRow();
       deleteCaseBtn.style.display = "inline-block";
@@ -206,6 +221,7 @@
         current.case_images = [...(current.case_images || []), newImage];
         renderImagesRow();
         renderCases();
+        showSuccess("تمت إضافة الصورة ✓");
       } catch (e) {
         caseModalError.textContent = e.message || "تعذر رفع الصورة";
       }
@@ -234,6 +250,7 @@
           const updated = await updateCase(editingCaseId, { name, monitoring_method });
           const index = allCases.findIndex((c) => c.id === editingCaseId);
           allCases[index] = { ...updated, case_images: allCases[index].case_images };
+          showSuccess("تم الحفظ ✓");
         } else {
           const created = await addCase({ item_id: itemId, name, monitoring_method });
           allCases.push(created);
@@ -243,6 +260,7 @@
           renderImagesRow();
           deleteCaseBtn.style.display = "inline-block";
           caseModalTitle.textContent = "تعديل الحالة";
+          showSuccess("تم إنشاء الحالة ✓ — تقدر تضيف صور لها الحين");
         }
         caseModalError.textContent = "";
         renderCases();

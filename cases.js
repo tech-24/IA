@@ -60,16 +60,17 @@ async function deleteCase(id) {
 
 // -------------------------------------------------
 // رفع صورة حالة إلى Supabase Storage، ثم تسجيلها بجدول case_images
+// نضغط الصورة أولًا (compressImage من image-utils.js) عشان يكون الرفع أسرع
 // ترجع الصف الجديد بجدول case_images (فيه رابط الصورة)
 // قاعدة البيانات نفسها ترفض أي محاولة إضافة صورة رابعة (حماية إضافية)
 // -------------------------------------------------
 async function addCaseImage({ case_id, file, sort_order }) {
-  const fileExt = file.name.split(".").pop();
-  const fileName = `${crypto.randomUUID()}.${fileExt}`;
+  const compressedFile = await compressImage(file);
+  const fileName = `${crypto.randomUUID()}.jpg`;
 
   const { error: uploadError } = await supabaseClient.storage
     .from(CASE_BUCKET)
-    .upload(fileName, file);
+    .upload(fileName, compressedFile);
   if (uploadError) throw uploadError;
 
   const { data: urlData } = supabaseClient.storage.from(CASE_BUCKET).getPublicUrl(fileName);

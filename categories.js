@@ -35,14 +35,15 @@ async function fetchCategories() {
 // -------------------------------------------------
 // رفع ملف صورة إلى Supabase Storage وإرجاع رابطها العام
 // يُستخدم فقط لو المشرف اختار "رفع صورة" بدل "أيقونة يدوية"
+// نضغط الصورة أولًا (compressImage من image-utils.js) عشان يكون الرفع أسرع
 // -------------------------------------------------
 async function uploadCategoryImage(file) {
-  const fileExt = file.name.split(".").pop();
-  const fileName = `${crypto.randomUUID()}.${fileExt}`; // اسم فريد يمنع تعارض الملفات
+  const compressedFile = await compressImage(file);
+  const fileName = `${crypto.randomUUID()}.jpg`; // اسم فريد يمنع تعارض الملفات
 
   const { error } = await supabaseClient.storage
     .from(CATEGORY_BUCKET)
-    .upload(fileName, file);
+    .upload(fileName, compressedFile);
   if (error) throw error;
 
   const { data } = supabaseClient.storage.from(CATEGORY_BUCKET).getPublicUrl(fileName);

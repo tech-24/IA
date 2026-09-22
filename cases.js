@@ -65,31 +65,13 @@ async function deleteCase(id) {
 // قاعدة البيانات نفسها ترفض أي محاولة إضافة صورة رابعة (حماية إضافية)
 // -------------------------------------------------
 async function addCaseImage({ case_id, file, sort_order }) {
-  // ============ تشخيص مؤقت — احذف هذا الجزء بعد التأكد من السرعة ============
-  const originalKB = Math.round(file.size / 1024);
-  const t0 = performance.now();
   const compressedFile = await compressImage(file);
-  const t1 = performance.now();
-  const compressedKB = Math.round(compressedFile.size / 1024);
-  alert(
-    `قبل الضغط: ${originalKB} كيلوبايت\n` +
-    `بعد الضغط: ${compressedKB} كيلوبايت\n` +
-    `وقت الضغط: ${Math.round(t1 - t0)} مللي ثانية\n` +
-    `جارٍ الآن رفع الصورة المضغوطة للخادم...`
-  );
-  const t2 = performance.now();
-  // ============================================================================
   const fileName = `${crypto.randomUUID()}.jpg`;
 
   const { error: uploadError } = await supabaseClient.storage
     .from(CASE_BUCKET)
     .upload(fileName, compressedFile);
   if (uploadError) throw uploadError;
-
-  // ============ تشخيص مؤقت ============
-  const t3 = performance.now();
-  alert(`وقت رفع الصورة فعليًا للخادم: ${Math.round(t3 - t2)} مللي ثانية`);
-  // ======================================
 
   const { data: urlData } = supabaseClient.storage.from(CASE_BUCKET).getPublicUrl(fileName);
 

@@ -115,7 +115,7 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   padding: 11px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 14px;
+  font-size: 16px; /* لازم 16px فأكثر — أقل من كذا يخلي آيفون يكبّر الصفحة تلقائيًا عند فتح لوحة المفاتيح */
   font-family: inherit;
   background: #fbfcfe;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;

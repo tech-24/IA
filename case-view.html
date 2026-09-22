@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الحالات — مساعد المفتش</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1 id="itemTitle">الحالات</h1>
+    <div class="user-info">
+      <button id="backBtn" class="secondary">رجوع</button>
+    </div>
+  </header>
+
+  <div class="main" style="padding-bottom:8px">
+    <div class="categories-grid" id="casesGrid" style="margin-top:20px"></div>
+  </div>
+  <div class="bottom-nav-spacer"></div>
+
+  <!-- ==================== الشريط السفلي ==================== -->
+  <nav class="bottom-nav">
+    <a href="index.html" class="active"><span class="nav-icon">📋</span>البنود</a>
+    <a href="circulars.html"><span class="nav-icon">📢</span>تعاميم</a>
+    <a href="tools.html"><span class="nav-icon">🛠️</span>أدوات مساعدة</a>
+  </nav>
+
+  <!-- ==================== نافذة عرض تفاصيل الحالة (قراءة فقط) ==================== -->
+  <div class="modal-overlay" id="caseDetailModal" style="display:none">
+    <div class="modal-box">
+      <h3 id="caseDetailTitle"></h3>
+
+      <div class="case-images-row" id="caseDetailImages"></div>
+
+      <div style="margin-top:10px">
+        <label style="font-size:13px;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px">
+          طريقة الرصد الصحيحة
+        </label>
+        <p id="caseDetailMethod" style="font-size:14px;line-height:1.8;white-space:pre-wrap"></p>
+      </div>
+
+      <div class="modal-actions">
+        <button id="closeCaseDetailBtn" class="secondary" style="width:100%">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="items.js"></script>
+  <script src="cases.js"></script>
+  <script src="circulars.js"></script>
+  <script src="bottom-nav.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const itemId = urlParams.get("item_id");
+
+    let allCases = [];
+    const grid = document.getElementById("casesGrid");
+
+    // -------------------------------------------------
+    // رسم شبكة الحالات (قراءة فقط)
+    // -------------------------------------------------
+    function renderCases() {
+      grid.innerHTML = "";
+
+      if (allCases.length === 0) {
+        grid.innerHTML = '<div class="empty-hint">لا توجد حالات لهذا البند بعد.</div>';
+        return;
+      }
+
+      allCases.forEach((c) => {
+        const card = document.createElement("div");
+        card.className = "case-card";
+        card.addEventListener("click", () => openCaseDetail(c));
+
+        const thumb = document.createElement("div");
+        thumb.className = "case-thumb";
+        const firstImage = c.case_images && c.case_images[0];
+        thumb.innerHTML = firstImage
+          ? `<img src="${firstImage.image_url}" alt="${c.name}" />`
+          : `<span class="icon-text">❔</span>`;
+
+        const title = document.createElement("div");
+        title.className = "case-title";
+        title.textContent = c.name;
+
+        card.appendChild(thumb);
+        card.appendChild(title);
+        grid.appendChild(card);
+      });
+    }
+
+    // -------------------------------------------------
+    // فتح نافذة تفاصيل الحالة: الصور كاملة + شرح طريقة الرصد
+    // -------------------------------------------------
+    const caseDetailModal = document.getElementById("caseDetailModal");
+
+    function openCaseDetail(c) {
+      document.getElementById("caseDetailTitle").textContent = c.name;
+      document.getElementById("caseDetailMethod").textContent =
+        c.monitoring_method || "لا يوجد شرح مضاف لهذي الحالة.";
+
+      const imagesRow = document.getElementById("caseDetailImages");
+      imagesRow.innerHTML = "";
+      const images = c.case_images || [];
+      if (images.length === 0) {
+        imagesRow.innerHTML = '<div class="empty-hint" style="padding:0">لا توجد صور لهذي الحالة.</div>';
+      } else {
+        images.forEach((img) => {
+          const slot = document.createElement("div");
+          slot.className = "case-image-slot";
+          slot.innerHTML = `<img src="${img.image_url}" alt="" />`;
+          imagesRow.appendChild(slot);
+        });
+      }
+
+      caseDetailModal.style.display = "flex";
+    }
+
+    document.getElementById("closeCaseDetailBtn").addEventListener("click", () => {
+      caseDetailModal.style.display = "none";
+    });
+
+    // ==================================================================
+    // تشغيل الصفحة
+    // ==================================================================
+    (async () => {
+      await requireAuth(); // أي مستخدم مسجل دخول (زائر أو مشرف)
+
+      if (!itemId) {
+        document.getElementById("itemTitle").textContent = "لم يتم تحديد بند";
+        return;
+      }
+
+      const item = await fetchItemById(itemId);
+      document.getElementById("itemTitle").textContent = item.name;
+
+      document.getElementById("backBtn").addEventListener("click", () => {
+        window.history.back();
+      });
+
+      allCases = await fetchCases(itemId);
+      renderCases();
+      updateCircularsNavDot();
+    })();
+  </script>
+</body>
+</html>

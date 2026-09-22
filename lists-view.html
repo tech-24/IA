@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>البنود — مساعد المفتش</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1 id="categoryTitle">البنود</h1>
+    <div class="user-info">
+      <button id="backHomeBtn" class="secondary">الأقسام</button>
+    </div>
+  </header>
+
+  <div class="main" style="padding-bottom:8px">
+    <!-- شريط تبويبات القوائم — سحب أو ضغط مباشر، بدون تبويب "إضافة" (قراءة فقط) -->
+    <div class="lists-tabs" id="listsTabs"></div>
+
+    <h3 id="activeListName" style="margin-top:18px"></h3>
+
+    <!-- بنود القائمة النشطة — البند الموقوف يظهر رماديًا مشطوبًا -->
+    <div class="items-list" id="itemsList"></div>
+  </div>
+  <div class="bottom-nav-spacer"></div>
+
+  <!-- ==================== الشريط السفلي ==================== -->
+  <nav class="bottom-nav">
+    <a href="index.html" class="active"><span class="nav-icon">📋</span>البنود</a>
+    <a href="circulars.html"><span class="nav-icon">📢</span>تعاميم</a>
+    <a href="tools.html"><span class="nav-icon">🛠️</span>أدوات مساعدة</a>
+  </nav>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="categories.js"></script>
+  <script src="lists.js"></script>
+  <script src="items.js"></script>
+  <script src="circulars.js"></script>
+  <script src="bottom-nav.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const categoryId = urlParams.get("category_id");
+
+    let allLists = [];
+    let activeListId = null;
+
+    const listsTabs = document.getElementById("listsTabs");
+    const activeListNameEl = document.getElementById("activeListName");
+    const itemsListEl = document.getElementById("itemsList");
+
+    // -------------------------------------------------
+    // رسم شريط التبويبات (قراءة فقط، بدون تبويب إضافة)
+    // -------------------------------------------------
+    function renderTabs() {
+      listsTabs.innerHTML = "";
+      allLists.forEach((list) => {
+        const tab = document.createElement("div");
+        tab.className = "list-tab" + (list.id === activeListId ? " active" : "");
+        tab.textContent = list.name;
+        tab.addEventListener("click", async () => {
+          activeListId = list.id;
+          renderTabs();
+          await renderItems();
+        });
+        listsTabs.appendChild(tab);
+      });
+    }
+
+    // -------------------------------------------------
+    // رسم بنود القائمة النشطة — البند الموقوف رمادي ومشطوب
+    // الضغط على أي بند يفتح صفحة حالاته
+    // -------------------------------------------------
+    async function renderItems() {
+      if (!activeListId) return;
+      const activeList = allLists.find((l) => l.id === activeListId);
+      activeListNameEl.textContent = activeList.name;
+
+      itemsListEl.innerHTML = "<p>جارٍ التحميل...</p>";
+      const items = await fetchItems(activeListId);
+      itemsListEl.innerHTML = "";
+
+      if (items.length === 0) {
+        itemsListEl.innerHTML = '<div class="empty-hint">لا توجد بنود بهذي القائمة بعد.</div>';
+        return;
+      }
+
+      items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "item-row" + (item.is_suspended ? " item-suspended" : "");
+        row.innerHTML = `<span class="item-name">${item.name}</span>`;
+        row.addEventListener("click", () => {
+          window.location.href = `case-view.html?item_id=${item.id}`;
+        });
+        itemsListEl.appendChild(row);
+      });
+    }
+
+    async function loadLists() {
+      allLists = await fetchLists(categoryId);
+      if (allLists.length > 0) activeListId = allLists[0].id;
+      renderTabs();
+      await renderItems();
+    }
+
+    // ==================================================================
+    // تشغيل الصفحة
+    // ==================================================================
+    (async () => {
+      await requireAuth(); // أي مستخدم مسجل دخول (زائر أو مشرف)
+
+      if (!categoryId) {
+        document.getElementById("categoryTitle").textContent = "لم يتم تحديد قسم";
+        return;
+      }
+
+      const category = await fetchCategoryById(categoryId);
+      document.getElementById("categoryTitle").textContent = category.name;
+
+      document.getElementById("backHomeBtn").addEventListener("click", () => {
+        window.location.href = "index.html";
+      });
+
+      await loadLists();
+      updateCircularsNavDot();
+    })();
+  </script>
+</body>
+</html>

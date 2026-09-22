@@ -86,9 +86,8 @@
         card.appendChild(name);
 
         // بخطوة لاحقة: الضغط على القسم بيوديك لصفحة البنود الخاصة فيه
-        // حاليًا لا يوجد إجراء لأن شاشة البنود لسه ما بنيت
         card.addEventListener("click", () => {
-          alert(`قسم "${cat.name}" — شاشة البنود بتُضاف بالخطوة الجاية`);
+          window.location.href = `lists-view.html?category_id=${cat.id}`;
         });
 
         grid.appendChild(card);

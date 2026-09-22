@@ -41,6 +41,8 @@
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="categories.js"></script>
+  <script src="circulars.js"></script>
+  <script src="bottom-nav.js"></script>
   <script>
     // -------------------------------------------------
     // عرض الأقسام كمربعات للقراءة فقط (بدون أزرار تعديل/حذف)
@@ -107,6 +109,7 @@
       document.getElementById("logoutBtn").addEventListener("click", logout);
 
       await renderCategoriesReadOnly();
+      updateCircularsNavDot(); // لا داعي لانتظاره، يضيف النقطة لما يخلص بدون ما يؤخر عرض الأقسام
     })();
   </script>
 </body>

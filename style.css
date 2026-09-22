@@ -231,6 +231,8 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   padding: 28px;
   width: 100%;
   max-width: 440px;
+  max-height: 85vh;
+  overflow-y: auto;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
 }
 .modal-box h3 { margin-top: 0; font-size: 18px; font-weight: 700; color: var(--primary-dark); }
@@ -256,19 +258,15 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
    بدون أي كود جافاسكربت إضافي، وبنفس الوقت التبويبات قابلة للضغط المباشر */
 .lists-tabs {
   display: flex;
+  flex-wrap: wrap; /* التبويبات اللي ما تسع بالسطر تنزل لسطر جديد بدل الازدحام */
   gap: 8px;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
   padding: 4px 2px 12px;
   margin-top: 16px;
   border-bottom: 1px solid var(--border);
 }
-.lists-tabs::-webkit-scrollbar { height: 4px; }
-.lists-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 .list-tab {
   flex: 0 0 auto;
-  scroll-snap-align: start;
   padding: 9px 18px;
   border-radius: 999px;
   font-size: 14px;
@@ -415,8 +413,9 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   font-size: 16px;
   font-family: inherit;
   background: #fbfcfe;
-  resize: vertical;
-  min-height: 80px;
+  resize: none; /* يمنع تمديد الحقل يدويًا خارج حدوده */
+  max-height: 240px;
+  overflow-y: auto; /* النص الطويل يتمرر داخل الحقل نفسه بدل ما يفيض خارجه */
 }
 .field textarea:focus {
   outline: none;

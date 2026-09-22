@@ -32,6 +32,7 @@
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="circulars.js"></script>
+  <script src="bottom-nav.js"></script>
   <script>
     let allCirculars = [];
     let myReadIds = [];
@@ -87,6 +88,7 @@
             if (dot) dot.remove();
             try {
               await markCircularRead(c.id);
+              updateCircularsNavDot(); // نحدّث النقطة فورًا لو كان هذا آخر تعميم غير مقروء
             } catch (e) {
               // فشل تسجيل القراءة ما يوقف تجربة المستخدم، بس نتجاهله بصمت
             }
@@ -110,6 +112,7 @@
       await requireAuth(); // أي مستخدم مسجل دخول (زائر أو مشرف)
       document.getElementById("logoutBtn").addEventListener("click", logout);
       await loadCirculars();
+      updateCircularsNavDot();
     })();
   </script>
 </body>

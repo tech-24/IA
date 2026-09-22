@@ -83,6 +83,11 @@
       categories.forEach((cat) => {
         const card = document.createElement("div");
         card.className = "category-card";
+        card.style.cursor = "pointer";
+        // الضغط على المربع نفسه (الصورة/الاسم) يفتح صفحة القوائم الخاصة بهذا القسم
+        card.addEventListener("click", () => {
+          window.location.href = `lists.html?category_id=${cat.id}`;
+        });
 
         const visual = document.createElement("div");
         visual.className = "category-visual";
@@ -101,7 +106,10 @@
         actions.innerHTML = `
           <button class="secondary edit-btn">تعديل</button>
         `;
-        actions.querySelector(".edit-btn").addEventListener("click", () => openEditModal(cat));
+        actions.querySelector(".edit-btn").addEventListener("click", (e) => {
+          e.stopPropagation(); // يمنع تفعيل ضغطة المربع نفسه (اللي يفتح صفحة القوائم)
+          openEditModal(cat);
+        });
 
         card.appendChild(visual);
         card.appendChild(name);

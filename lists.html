@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>القوائم والبنود — مساعد المفتش</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1>القوائم والبنود</h1>
+    <div class="user-info">
+      <button id="backAdminBtn" class="secondary">لوحة الأقسام</button>
+      <button id="logoutBtn" class="secondary">خروج</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- مسار بسيط يوضح اسم القسم الحالي -->
+    <div class="breadcrumb" id="categoryBreadcrumb">جارٍ التحميل...</div>
+    <h2 id="categoryTitle"></h2>
+
+    <!-- ==================== شريط تبويبات القوائم ====================
+         السحب باللمس (سوايب) يمين/يسار يشتغل تلقائيًا عبر overflow-x
+         والضغط المباشر على أي تبويب ينقل له فورًا ===================== -->
+    <div class="lists-tabs" id="listsTabs"></div>
+
+    <!-- عنوان القائمة النشطة + أزرار تعديل/حذفها -->
+    <div class="list-panel-header" id="listPanelHeader" style="display:none">
+      <h3 id="activeListName"></h3>
+      <div class="actions">
+        <button class="secondary" id="editListBtn">تعديل القائمة</button>
+        <button class="secondary" id="deleteListBtn" style="color:#b91c1c">حذف القائمة</button>
+      </div>
+    </div>
+
+    <!-- بنود القائمة النشطة -->
+    <div class="items-list" id="itemsList"></div>
+    <div style="margin-top:12px" id="addItemBtnWrap"></div>
+  </div>
+
+  <!-- ==================== نافذة إضافة/تعديل قائمة ==================== -->
+  <div class="modal-overlay" id="listModal" style="display:none">
+    <div class="modal-box">
+      <h3 id="listModalTitle">إضافة قائمة جديدة</h3>
+      <div class="field">
+        <label for="listName">اسم القائمة</label>
+        <input type="text" id="listName" placeholder="مثال: بنود عامة" />
+      </div>
+      <div class="error" id="listModalError"></div>
+      <div class="modal-actions">
+        <button id="saveListBtn">حفظ</button>
+        <button class="secondary" id="cancelListBtn">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== نافذة إضافة/تعديل بند ==================== -->
+  <div class="modal-overlay" id="itemModal" style="display:none">
+    <div class="modal-box">
+      <h3 id="itemModalTitle">إضافة بند جديد</h3>
+      <div class="field">
+        <label for="itemName">اسم البند</label>
+        <input type="text" id="itemName" placeholder="مثال: النظافة العامة" />
+      </div>
+      <div class="error" id="itemModalError"></div>
+      <div class="modal-actions">
+        <button id="saveItemBtn">حفظ</button>
+        <button class="secondary" id="cancelItemBtn">إلغاء</button>
+      </div>
+      <div class="center" style="margin-top:10px">
+        <button class="link-btn" id="deleteItemBtn" style="display:none;color:#b91c1c">حذف هذا البند</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ترتيب التحميل مهم: config.js ثم auth.js ثم categories.js/lists.js/items.js -->
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="categories.js"></script>
+  <script src="lists.js"></script>
+  <script src="items.js"></script>
+  <script>
+    // ==================================================================
+    // قراءة رقم القسم من رابط الصفحة (?category_id=...)
+    // ==================================================================
+    const urlParams = new URLSearchParams(window.location.search);
+    const categoryId = urlParams.get("category_id");
+
+    // متغيرات الحالة
+    let allLists = [];        // كل قوائم هذا القسم
+    let activeListId = null;  // القائمة المفتوحة حاليًا (التبويب النشط)
+    let editingListId = null; // القائمة اللي يتم تعديلها بالنافذة المنبثقة
+    let editingItemId = null; // البند اللي يتم تعديله بالنافذة المنبثقة
+
+    const listsTabs = document.getElementById("listsTabs");
+    const listPanelHeader = document.getElementById("listPanelHeader");
+    const activeListNameEl = document.getElementById("activeListName");
+    const itemsListEl = document.getElementById("itemsList");
+    const addItemBtnWrap = document.getElementById("addItemBtnWrap");
+
+    // -------------------------------------------------
+    // رسم شريط التبويبات (كل القوائم + تبويب "إضافة قائمة")
+    // -------------------------------------------------
+    function renderTabs() {
+      listsTabs.innerHTML = "";
+
+      allLists.forEach((list) => {
+        const tab = document.createElement("div");
+        tab.className = "list-tab" + (list.id === activeListId ? " active" : "");
+        tab.textContent = list.name;
+        tab.addEventListener("click", () => {
+          activeListId = list.id;
+          renderTabs();
+          renderListPanel();
+        });
+        listsTabs.appendChild(tab);
+      });
+
+      // تبويب إضافة قائمة جديدة، دائمًا آخر التبويبات
+      const addTab = document.createElement("div");
+      addTab.className = "list-tab add-list-tab";
+      addTab.textContent = "+ قائمة جديدة";
+      addTab.addEventListener("click", openAddListModal);
+      listsTabs.appendChild(addTab);
+    }
+
+    // -------------------------------------------------
+    // رسم لوحة القائمة النشطة (العنوان + البنود)
+    // -------------------------------------------------
+    async function renderListPanel() {
+      if (!activeListId) {
+        listPanelHeader.style.display = "none";
+        itemsListEl.innerHTML = "";
+        addItemBtnWrap.innerHTML = "";
+        return;
+      }
+
+      const activeList = allLists.find((l) => l.id === activeListId);
+      listPanelHeader.style.display = "flex";
+      activeListNameEl.textContent = activeList.name;
+
+      itemsListEl.innerHTML = "<p>جارٍ التحميل...</p>";
+      const items = await fetchItems(activeListId);
+      itemsListEl.innerHTML = "";
+
+      if (items.length === 0) {
+        itemsListEl.innerHTML = '<div class="empty-hint">لا توجد بنود بهذي القائمة بعد.</div>';
+      }
+
+      items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "item-row";
+        row.innerHTML = `<span class="item-name">${item.name}</span>`;
+
+        const editBtn = document.createElement("button");
+        editBtn.className = "secondary";
+        editBtn.textContent = "تعديل";
+        editBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openEditItemModal(item);
+        });
+        row.appendChild(editBtn);
+
+        // الضغط على الصف نفسه (بخطوة لاحقة) بيفتح حالات هذا البند
+        row.addEventListener("click", () => {
+          alert(`بند "${item.name}" — شاشة الحالات بتُضاف بالخطوة الجاية`);
+        });
+
+        itemsListEl.appendChild(row);
+      });
+
+      addItemBtnWrap.innerHTML = "";
+      const addBtn = document.createElement("div");
+      addBtn.className = "add-item-btn";
+      addBtn.textContent = "+ إضافة بند جديد";
+      addBtn.addEventListener("click", openAddItemModal);
+      addItemBtnWrap.appendChild(addBtn);
+    }
+
+    // -------------------------------------------------
+    // تحميل كل القوائم الخاصة بهذا القسم، وتفعيل أول قائمة تلقائيًا
+    // -------------------------------------------------
+    async function loadLists() {
+      allLists = await fetchLists(categoryId);
+      if (!activeListId && allLists.length > 0) {
+        activeListId = allLists[0].id;
+      }
+      renderTabs();
+      await renderListPanel();
+    }
+
+    // ==================================================================
+    // نافذة إضافة/تعديل قائمة
+    // ==================================================================
+    const listModal = document.getElementById("listModal");
+    const listModalTitle = document.getElementById("listModalTitle");
+    const listModalError = document.getElementById("listModalError");
+
+    function openAddListModal() {
+      editingListId = null;
+      listModalTitle.textContent = "إضافة قائمة جديدة";
+      document.getElementById("listName").value = "";
+      listModalError.textContent = "";
+      listModal.style.display = "flex";
+    }
+
+    function openEditListModal() {
+      const activeList = allLists.find((l) => l.id === activeListId);
+      editingListId = activeList.id;
+      listModalTitle.textContent = "تعديل القائمة";
+      document.getElementById("listName").value = activeList.name;
+      listModalError.textContent = "";
+      listModal.style.display = "flex";
+    }
+
+    document.getElementById("cancelListBtn").addEventListener("click", () => {
+      listModal.style.display = "none";
+    });
+
+    document.getElementById("saveListBtn").addEventListener("click", async () => {
+      const name = document.getElementById("listName").value.trim();
+      if (!name) {
+        listModalError.textContent = "اكتب اسم القائمة";
+        return;
+      }
+      try {
+        if (editingListId) {
+          await updateList(editingListId, { name });
+        } else {
+          const newList = await addList({ category_id: categoryId, name });
+          activeListId = newList.id; // نفتح القائمة الجديدة مباشرة بعد إنشائها
+        }
+        listModal.style.display = "none";
+        await loadLists();
+      } catch (e) {
+        listModalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
+      }
+    });
+
+    document.getElementById("editListBtn").addEventListener("click", openEditListModal);
+
+    document.getElementById("deleteListBtn").addEventListener("click", async () => {
+      const confirmed = confirm("هل أنت متأكد من حذف هذي القائمة؟ سيُحذف معها كل بنودها وحالاتها.");
+      if (!confirmed) return;
+      await deleteList(activeListId);
+      activeListId = null;
+      await loadLists();
+    });
+
+    // ==================================================================
+    // نافذة إضافة/تعديل بند
+    // ==================================================================
+    const itemModal = document.getElementById("itemModal");
+    const itemModalTitle = document.getElementById("itemModalTitle");
+    const itemModalError = document.getElementById("itemModalError");
+    const deleteItemBtn = document.getElementById("deleteItemBtn");
+
+    function openAddItemModal() {
+      editingItemId = null;
+      itemModalTitle.textContent = "إضافة بند جديد";
+      document.getElementById("itemName").value = "";
+      itemModalError.textContent = "";
+      deleteItemBtn.style.display = "none";
+      itemModal.style.display = "flex";
+    }
+
+    function openEditItemModal(item) {
+      editingItemId = item.id;
+      itemModalTitle.textContent = "تعديل البند";
+      document.getElementById("itemName").value = item.name;
+      itemModalError.textContent = "";
+      deleteItemBtn.style.display = "inline-block";
+      itemModal.style.display = "flex";
+    }
+
+    document.getElementById("cancelItemBtn").addEventListener("click", () => {
+      itemModal.style.display = "none";
+    });
+
+    document.getElementById("saveItemBtn").addEventListener("click", async () => {
+      const name = document.getElementById("itemName").value.trim();
+      if (!name) {
+        itemModalError.textContent = "اكتب اسم البند";
+        return;
+      }
+      try {
+        if (editingItemId) {
+          await updateItem(editingItemId, { name });
+        } else {
+          await addItem({ list_id: activeListId, name });
+        }
+        itemModal.style.display = "none";
+        await renderListPanel();
+      } catch (e) {
+        itemModalError.textContent = e.message || "حدث خطأ أثناء الحفظ";
+      }
+    });
+
+    deleteItemBtn.addEventListener("click", async () => {
+      const confirmed = confirm("هل أنت متأكد من حذف هذا البند؟ سيُحذف معه كل حالاته وصوره.");
+      if (!confirmed) return;
+      await deleteItem(editingItemId);
+      itemModal.style.display = "none";
+      await renderListPanel();
+    });
+
+    // ==================================================================
+    // تشغيل الصفحة: التحقق من صلاحية المشرف، ثم تحميل اسم القسم والقوائم
+    // ==================================================================
+    (async () => {
+      await requireAuth({ adminOnly: true });
+
+      if (!categoryId) {
+        document.getElementById("categoryBreadcrumb").textContent = "لم يتم تحديد قسم";
+        return;
+      }
+
+      const category = await fetchCategoryById(categoryId);
+      document.getElementById("categoryBreadcrumb").textContent = "الأقسام";
+      document.getElementById("categoryTitle").textContent = category.name;
+
+      document.getElementById("backAdminBtn").addEventListener("click", () => {
+        window.location.href = "admin.html";
+      });
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+
+      await loadLists();
+    })();
+  </script>
+</body>
+</html>

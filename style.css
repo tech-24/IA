@@ -240,3 +240,95 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 
 .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
 .modal-actions button { flex: 1; }
+
+/* ================================================================
+   قسم القوائم والبنود — يُستخدم في lists.html
+   ================================================================ */
+
+/* مسار العودة (قسم كذا > القوائم) أعلى الصفحة */
+.breadcrumb { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+.breadcrumb button { background: none; padding: 0; color: var(--primary); font-weight: 600; }
+
+/* ---------- شريط التبويبات (القوائم) ----------
+   overflow-x: auto يمنح السحب باللمس (سوايب) يمين/يسار على الجوال تلقائيًا
+   بدون أي كود جافاسكربت إضافي، وبنفس الوقت التبويبات قابلة للضغط المباشر */
+.lists-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding: 4px 2px 12px;
+  margin-top: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.lists-tabs::-webkit-scrollbar { height: 4px; }
+.lists-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.list-tab {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  padding: 9px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--primary-lighter);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.list-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.list-tab.add-list-tab {
+  background: transparent;
+  color: var(--primary);
+  border: 2px dashed #b9cfe6;
+}
+
+/* ---------- عنوان القائمة النشطة + أزرار تعديل/حذفها ---------- */
+.list-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 18px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.list-panel-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.list-panel-header .actions { display: flex; gap: 8px; }
+.list-panel-header .actions button { padding: 5px 14px; font-size: 12px; }
+
+/* ---------- صفوف البنود ---------- */
+.items-list { display: flex; flex-direction: column; gap: 10px; }
+
+.item-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.item-row:hover { box-shadow: var(--shadow-sm); border-color: var(--primary); }
+.item-row .item-name { font-weight: 600; font-size: 14px; }
+.item-row button { padding: 5px 14px; font-size: 12px; }
+
+/* زر "إضافة بند جديد" أسفل القائمة */
+.add-item-btn {
+  border: 2px dashed #b9cfe6;
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-lighter);
+  cursor: pointer;
+}
+.add-item-btn:hover { background: var(--primary-light); }
+
+.empty-hint { color: var(--text-muted); font-size: 14px; padding: 20px 0; text-align: center; }

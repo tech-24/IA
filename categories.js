@@ -8,6 +8,19 @@
 const CATEGORY_BUCKET = "category-images";
 
 // -------------------------------------------------
+// جلب بيانات قسم واحد بالمعرف (يُستخدم بصفحة القوائم لعرض اسم القسم)
+// -------------------------------------------------
+async function fetchCategoryById(id) {
+  const { data, error } = await supabaseClient
+    .from("categories")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// -------------------------------------------------
 // جلب كل الأقسام من قاعدة البيانات، مرتبة حسب sort_order
 // -------------------------------------------------
 async function fetchCategories() {

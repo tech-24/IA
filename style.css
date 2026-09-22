@@ -102,8 +102,20 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 .main button.secondary:hover,
 .modal-box button.secondary:hover { background: #ddeaf6; }
 
+/* ---------- شعار صفحة تسجيل الدخول ---------- */
+.login-logo {
+  text-align: center;
+  margin-top: 50px;
+}
+.login-logo img {
+  max-width: 220px;
+  width: 60%;
+  height: auto;
+  mix-blend-mode: multiply; /* يخفي خلفية الصورة البيضاء ويدمجها بخلفية الصفحة */
+}
+
 /* ---------- صندوق صفحة تسجيل الدخول (login.html) ---------- */
-.container { max-width: 440px; margin: 70px auto; padding: 24px; }
+.container { max-width: 440px; margin: 20px auto 70px; padding: 24px; }
 .card {
   background: var(--surface);
   border-radius: var(--radius);
@@ -545,9 +557,13 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 .tool-card .tool-visual .icon-text { font-size: 36px; }
 .tool-card .tool-name { margin-top: 8px; font-size: 13px; font-weight: 700; text-align: center; padding: 0 6px; }
 
-/* ================================================================
-   مفتاح تبديل بشكل iOS (زي زر تشغيل/إيقاف البلوتوث بالآيفون)
-   ================================================================ */
+/* عمود يجمع مفتاح "وضع المفتش" وشارة الدور تحته مباشرة، بدل سطر عرضي منفصل */
+.toggle-badge-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
 .ios-toggle {
   display: flex;
   align-items: center;

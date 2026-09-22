@@ -14,15 +14,16 @@
   <header>
     <h1>مساعد المفتش</h1>
     <div class="user-info">
-      <!-- شارة تبيّن نوع الحساب: "زائر" أو "مشرف" -->
-      <span class="badge" id="roleBadge"></span>
-      <!-- نفس مفتاح "وضع المفتش" اللي بلوحة المشرف — يظهر فقط لو المستخدم مشرف
-           هنا يكون مفعّل دائمًا (لأنك فعليًا بوضع المفتش الآن)، وتعطيله يرجعك للوحة المشرف -->
-      <label class="ios-toggle" id="inspectorModeWrap" style="display:none">
-        <span class="toggle-label">وضع المفتش</span>
-        <input type="checkbox" id="inspectorModeToggle" checked />
-        <span class="toggle-slider"></span>
-      </label>
+      <!-- المفتاح وكلمة "مشرف" بعمود واحد (المفتاح فوق، الكلمة تحته)
+           الشارة تظل تظهر للزائر برضو (بدون مفتاح فوقها لأنه يظهر للمشرف فقط) -->
+      <div class="toggle-badge-col">
+        <label class="ios-toggle" id="inspectorModeWrap" style="display:none">
+          <span class="toggle-label">وضع المفتش</span>
+          <input type="checkbox" id="inspectorModeToggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="badge" id="roleBadge"></span>
+      </div>
       <button id="logoutBtn" class="secondary">خروج</button>
     </div>
   </header>

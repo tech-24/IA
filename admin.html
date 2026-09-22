@@ -12,12 +12,6 @@
 <body>
   <header>
     <h1>لوحة المشرف</h1>
-    <div class="user-info">
-      <button id="circularsLink" class="secondary">التعاميم</button>
-      <button id="toolsLink" class="secondary">الأدوات المساعدة</button>
-      <button id="backLink" class="secondary">تبديل لوضع المفتش</button>
-      <button id="logoutBtn" class="secondary">خروج</button>
-    </div>
   </header>
 
   <div class="main">
@@ -25,6 +19,15 @@
     <!-- هنا تُعرض كل الأقسام كمربعات + مربع "إضافة قسم جديد" بالنهاية -->
     <div class="categories-grid" id="categoriesGrid"></div>
   </div>
+  <div class="bottom-nav-spacer"></div>
+
+  <!-- ==================== الشريط السفلي (قوائم لوحة المشرف) ==================== -->
+  <nav class="bottom-nav">
+    <a href="circulars-admin.html"><span class="nav-icon">📢</span>التعاميم</a>
+    <a href="tools-admin.html"><span class="nav-icon">🛠️</span>الأدوات المساعدة</a>
+    <a href="index.html"><span class="nav-icon">👁️</span>وضع المفتش</a>
+    <a href="#" id="logoutNavLink"><span class="nav-icon">🚪</span>خروج</a>
+  </nav>
 
   <!-- ==================== النافذة المنبثقة لإضافة/تعديل قسم ====================
        نفس النافذة تُستخدم للحالتين (إضافة وتعديل)، تتغيّر عناوينها بالـ JS ========= -->
@@ -232,16 +235,10 @@
     (async () => {
       const profile = await requireAuth({ adminOnly: true });
 
-      document.getElementById("backLink").addEventListener("click", () => {
-        window.location.href = "index.html";
+      document.getElementById("logoutNavLink").addEventListener("click", (e) => {
+        e.preventDefault();
+        logout();
       });
-      document.getElementById("circularsLink").addEventListener("click", () => {
-        window.location.href = "circulars-admin.html";
-      });
-      document.getElementById("toolsLink").addEventListener("click", () => {
-        window.location.href = "tools-admin.html";
-      });
-      document.getElementById("logoutBtn").addEventListener("click", logout);
 
       await loadCategories();
     })();

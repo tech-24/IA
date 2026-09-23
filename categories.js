@@ -21,6 +21,14 @@ async function fetchCategoryById(id) {
 }
 
 // -------------------------------------------------
+// تحديث ترتيب قسم واحد فقط (يُستخدم بعد إعادة الترتيب بالسحب والإفلات)
+// -------------------------------------------------
+async function updateCategorySortOrder(id, sort_order) {
+  const { error } = await supabaseClient.from("categories").update({ sort_order }).eq("id", id);
+  if (error) throw error;
+}
+
+// -------------------------------------------------
 // جلب كل الأقسام من قاعدة البيانات، مرتبة حسب sort_order
 // -------------------------------------------------
 async function fetchCategories() {

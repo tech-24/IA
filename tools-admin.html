@@ -83,8 +83,16 @@
       allTools.forEach((tool) => {
         const card = document.createElement("div");
         card.className = "category-card";
+        card.dataset.id = tool.id;
         card.style.cursor = "pointer";
         card.addEventListener("click", () => openEditToolModal(tool));
+
+        const handle = document.createElement("div");
+        handle.className = "drag-handle";
+        handle.textContent = "⠿";
+        handle.addEventListener("click", (e) => e.stopPropagation());
+        attachDragHandle(handle, card, allTools, persistToolOrder);
+        card.appendChild(handle);
 
         const visual = document.createElement("div");
         visual.className = "category-visual";
@@ -106,6 +114,72 @@
       addCard.textContent = "+ إضافة أداة جديدة";
       addCard.addEventListener("click", openAddToolModal);
       toolsGrid.appendChild(addCard);
+    }
+
+    // ==================================================================
+    // السحب والإفلات لإعادة الترتيب (يشتغل باللمس والماوس عبر Pointer Events)
+    // نفس الآلية المستخدمة بصفحة الأقسام
+    // ==================================================================
+    function attachDragHandle(handleEl, cardEl, arrayRef, persistFn) {
+      handleEl.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        const pointerId = e.pointerId;
+        handleEl.setPointerCapture(pointerId);
+        cardEl.classList.add("dragging-card");
+
+        function onMove(ev) {
+          const x = ev.clientX, y = ev.clientY;
+          const grid = cardEl.parentElement;
+          const siblings = Array.from(grid.children).filter(
+            (el) => el !== cardEl && el.classList.contains("category-card")
+          );
+          let closest = null;
+          let closestDist = Infinity;
+          siblings.forEach((sib) => {
+            const r = sib.getBoundingClientRect();
+            const dist = Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y);
+            if (dist < closestDist) { closestDist = dist; closest = sib; }
+          });
+          if (closest) {
+            const children = Array.from(grid.children);
+            const cardIndex = children.indexOf(cardEl);
+            const closestIndex = children.indexOf(closest);
+            if (cardIndex > closestIndex) grid.insertBefore(cardEl, closest);
+            else grid.insertBefore(cardEl, closest.nextSibling);
+          }
+        }
+
+        function onUp() {
+          handleEl.releasePointerCapture(pointerId);
+          handleEl.removeEventListener("pointermove", onMove);
+          handleEl.removeEventListener("pointerup", onUp);
+          cardEl.classList.remove("dragging-card");
+
+          const grid = cardEl.parentElement;
+          const newOrderIds = Array.from(grid.children)
+            .filter((el) => el.classList.contains("category-card"))
+            .map((el) => el.dataset.id);
+          arrayRef.sort((a, b) => newOrderIds.indexOf(a.id) - newOrderIds.indexOf(b.id));
+          arrayRef.forEach((item, idx) => { item.sort_order = idx; });
+          persistFn(arrayRef);
+        }
+
+        handleEl.addEventListener("pointermove", onMove);
+        handleEl.addEventListener("pointerup", onUp);
+      });
+    }
+
+    // -------------------------------------------------
+    // تحفظ الترتيب الجديد للأدوات بقاعدة البيانات بعد انتهاء السحب
+    // -------------------------------------------------
+    async function persistToolOrder(items) {
+      for (const item of items) {
+        try {
+          await updateToolSortOrder(item.id, item.sort_order);
+        } catch (e) {
+          // نتجاهل فشل عنصر واحد بصمت، الباقي يستمر يحفظ
+        }
+      }
     }
 
     async function loadTools() {

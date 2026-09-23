@@ -61,9 +61,14 @@ async function deleteCategoryImageFile(imageUrl) {
   const fileName = extractStorageFileName(imageUrl);
   if (!fileName) return;
   try {
-    await supabaseClient.storage.from(CATEGORY_BUCKET).remove([fileName]);
+    const { data, error } = await supabaseClient.storage.from(CATEGORY_BUCKET).remove([fileName]);
+    if (error) {
+      alert("خطأ بحذف صورة القسم القديمة: " + error.message); // ============ تشخيصي مؤقت ============
+    } else {
+      alert("نتيجة الحذف: " + JSON.stringify(data)); // ============ تشخيصي مؤقت ============
+    }
   } catch (e) {
-    // تجاهل بصمت — حذف صف قاعدة البيانات أهم وما نوقفه بسبب فشل حذف الملف
+    alert("استثناء أثناء حذف صورة القسم: " + e.message); // ============ تشخيصي مؤقت ============
   }
 }
 

@@ -1,0 +1,15 @@
+{
+  "name": "مساعد المفتش",
+  "short_name": "مساعد المفتش",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#3379BD",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

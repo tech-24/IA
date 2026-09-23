@@ -29,6 +29,7 @@ async function signup(email, password) {
 // تسجيل خروج المستخدم الحالي، وإعادته لصفحة تسجيل الدخول
 // -------------------------------------------------
 async function logout() {
+  sessionStorage.removeItem("inspector_profile_cache"); // نفضي النسخة المحفوظة مؤقتًا من بيانات الدور
   await supabaseClient.auth.signOut();
   window.location.href = "login.html";
 }
@@ -37,13 +38,28 @@ async function logout() {
 // جلب بيانات المستخدم المسجل دخوله حاليًا (id + email + role)
 // لو ما فيه أحد مسجل دخول، ترجع null
 // role تكون إما "admin" أو "viewer" (معرّفة بجدول profiles)
+//
+// تسريع: نخزّن النتيجة مؤقتًا بـ sessionStorage (يتفضّى تلقائيًا لما تسكّر التبويب،
+// أو عند تسجيل الخروج). هذا يلغي طلب قاعدة بيانات إضافي بكل انتقال بين الصفحات
+// بنفس الجلسة — بدل ما نسأل الخادم "مين أنت؟" بكل صفحة، نسأله مرة وحدة بس.
 // -------------------------------------------------
 async function getCurrentProfile() {
   // الخطوة 1: هل فيه جلسة (session) نشطة بالمتصفح؟
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) return null;
 
-  // الخطوة 2: نجيب صف هذا المستخدم من جدول profiles عشان نعرف دوره
+  // الخطوة 2: لو عندنا نسخة محفوظة مؤقتًا لنفس المستخدم، نستخدمها فورًا بدون اتصال بالخادم
+  const cached = sessionStorage.getItem("inspector_profile_cache");
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed.id === session.user.id) return parsed;
+    } catch (e) {
+      // لو كان المحتوى المخزّن تالف لأي سبب، نتجاهله ونكمل نجيبه من الخادم عادي
+    }
+  }
+
+  // الخطوة 3: نجيب صف هذا المستخدم من جدول profiles عشان نعرف دوره
   const { data, error } = await supabaseClient
     .from("profiles")
     .select("id, email, role")
@@ -51,6 +67,8 @@ async function getCurrentProfile() {
     .single();
 
   if (error) return null;
+
+  sessionStorage.setItem("inspector_profile_cache", JSON.stringify(data));
   return data;
 }
 

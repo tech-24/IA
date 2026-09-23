@@ -12,7 +12,8 @@ async function fetchLists(categoryId) {
     .from("lists")
     .select("*")
     .eq("category_id", categoryId)
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return data;
 }

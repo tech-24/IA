@@ -87,78 +87,6 @@
     const modalError = document.getElementById("modalError");
     const deleteCategoryBtn = document.getElementById("deleteCategoryBtn");
 
-    // ==================================================================
-    // السحب والإفلات لإعادة الترتيب (يشتغل باللمس والماوس عبر Pointer Events)
-    // handleEl: مقبض السحب، cardEl: البطاقة نفسها، arrayRef: المصفوفة المحلية
-    // persistFn: دالة تحفظ الترتيب الجديد بقاعدة البيانات بعد ما ينتهي السحب
-    // ==================================================================
-    function attachDragHandle(handleEl, cardEl, arrayRef, persistFn) {
-      handleEl.addEventListener("pointerdown", (e) => {
-        e.preventDefault();
-        const pointerId = e.pointerId;
-        handleEl.setPointerCapture(pointerId);
-        cardEl.classList.add("dragging-card");
-
-        function onMove(ev) {
-          const x = ev.clientX, y = ev.clientY;
-          const grid = cardEl.parentElement;
-          // نلقى أقرب بطاقة تانية (غير البطاقة المسحوبة نفسها ومربع "إضافة")
-          const siblings = Array.from(grid.children).filter(
-            (el) => el !== cardEl && el.classList.contains("category-card")
-          );
-          let closest = null;
-          let closestDist = Infinity;
-          siblings.forEach((sib) => {
-            const r = sib.getBoundingClientRect();
-            const dist = Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y);
-            if (dist < closestDist) { closestDist = dist; closest = sib; }
-          });
-          if (closest) {
-            const children = Array.from(grid.children);
-            const cardIndex = children.indexOf(cardEl);
-            const closestIndex = children.indexOf(closest);
-            if (cardIndex > closestIndex) grid.insertBefore(cardEl, closest);
-            else grid.insertBefore(cardEl, closest.nextSibling);
-          }
-        }
-
-        function onUp() {
-          handleEl.releasePointerCapture(pointerId);
-          handleEl.removeEventListener("pointermove", onMove);
-          handleEl.removeEventListener("pointerup", onUp);
-          cardEl.classList.remove("dragging-card");
-
-          // نحدّد الترتيب الجديد من ترتيب البطاقات الفعلي بالـ DOM الآن، ونحفظه
-          const grid = cardEl.parentElement;
-          const newOrderIds = Array.from(grid.children)
-            .filter((el) => el.classList.contains("category-card"))
-            .map((el) => el.dataset.id);
-          arrayRef.sort((a, b) => newOrderIds.indexOf(a.id) - newOrderIds.indexOf(b.id));
-          arrayRef.forEach((item, idx) => { item.sort_order = idx; });
-          persistFn(arrayRef);
-        }
-
-        handleEl.addEventListener("pointermove", onMove);
-        handleEl.addEventListener("pointerup", onUp);
-      });
-    }
-
-    // -------------------------------------------------
-    // تحفظ الترتيب الجديد للأقسام بقاعدة البيانات بعد انتهاء السحب
-    // -------------------------------------------------
-    async function persistCategoryOrder(items) {
-      let report = "";
-      for (const item of items) {
-        try {
-          const data = await updateCategorySortOrder(item.id, item.sort_order);
-          report += `${item.name}: ترتيب جديد=${item.sort_order} — الصفوف المتأثرة: ${data.length}\n`;
-        } catch (e) {
-          report += `${item.name}: خطأ — ${e.message}\n`;
-        }
-      }
-      alert(report); // ============ تشخيصي مؤقت ============
-    }
-
     // -------------------------------------------------
     // جلب الأقسام من الخادم (تُستدعى مرة وحدة فقط عند فتح الصفحة)
     // -------------------------------------------------
@@ -178,20 +106,11 @@
       categoriesCache.forEach((cat) => {
         const card = document.createElement("div");
         card.className = "category-card";
-        card.dataset.id = cat.id; // نستخدمه بعد السحب لمعرفة الترتيب الجديد فعليًا من الـ DOM
         card.style.cursor = "pointer";
         // الضغط على المربع نفسه (الصورة/الاسم) يفتح صفحة القوائم الخاصة بهذا القسم
         card.addEventListener("click", () => {
           window.location.href = `lists.html?category_id=${cat.id}`;
         });
-
-        // مقبض السحب لإعادة الترتيب — يمسك منه بس (مو من أي مكان بالبطاقة)
-        const handle = document.createElement("div");
-        handle.className = "drag-handle";
-        handle.textContent = "⠿";
-        handle.addEventListener("click", (e) => e.stopPropagation());
-        attachDragHandle(handle, card, categoriesCache, persistCategoryOrder);
-        card.appendChild(handle);
 
         const visual = document.createElement("div");
         visual.className = "category-visual";

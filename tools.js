@@ -23,21 +23,14 @@ async function deleteToolStorageFile(fileUrl, bucketName) {
 }
 
 // -------------------------------------------------
-// تحديث ترتيب أداة واحدة فقط (يُستخدم بعد إعادة الترتيب بالسحب والإفلات)
-// -------------------------------------------------
-async function updateToolSortOrder(id, sort_order) {
-  const { error } = await supabaseClient.from("tools").update({ sort_order }).eq("id", id);
-  if (error) throw error;
-}
-
-// -------------------------------------------------
-// جلب كل الأدوات، مرتبة حسب sort_order
+// جلب كل الأدوات، مرتبة حسب sort_order ثم تاريخ الإضافة (ترتيب ثابت)
 // -------------------------------------------------
 async function fetchTools() {
   const { data, error } = await supabaseClient
     .from("tools")
     .select("*")
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return data;
 }

@@ -5,6 +5,21 @@
 // ==================================================================
 
 // -------------------------------------------------
+// بحث عن البنود بالاسم عبر كل الأقسام والقوائم دفعة وحدة
+// ترجع كل بند مع اسم قائمته وقسمه (لعرض السياق بنتائج البحث)
+// -------------------------------------------------
+async function searchItems(query) {
+  const { data, error } = await supabaseClient
+    .from("items")
+    .select("*, list:lists(name, category:categories(name))")
+    .ilike("name", `%${query}%`)
+    .order("name", { ascending: true })
+    .limit(30);
+  if (error) throw error;
+  return data;
+}
+
+// -------------------------------------------------
 // جلب بيانات بند واحد بالمعرف (يُستخدم بصفحة الحالات لعرض اسم البند)
 // -------------------------------------------------
 async function fetchItemById(id) {
@@ -25,7 +40,8 @@ async function fetchItems(listId) {
     .from("items")
     .select("*")
     .eq("list_id", listId)
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return data;
 }

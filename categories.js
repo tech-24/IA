@@ -21,26 +21,15 @@ async function fetchCategoryById(id) {
 }
 
 // -------------------------------------------------
-// تحديث ترتيب قسم واحد فقط (يُستخدم بعد إعادة الترتيب بالسحب والإفلات)
-// -------------------------------------------------
-async function updateCategorySortOrder(id, sort_order) {
-  const { data, error } = await supabaseClient
-    .from("categories")
-    .update({ sort_order })
-    .eq("id", id)
-    .select();
-  if (error) throw error;
-  return data;
-}
-
-// -------------------------------------------------
-// جلب كل الأقسام من قاعدة البيانات، مرتبة حسب sort_order
+// جلب كل الأقسام من قاعدة البيانات، مرتبة حسب sort_order ثم تاريخ الإضافة
+// (ترتيب ثابت دائمًا حتى لو تساوت قيم sort_order، عشان ما يتغيّر مكان أي قسم عشوائيًا)
 // -------------------------------------------------
 async function fetchCategories() {
   const { data, error } = await supabaseClient
     .from("categories")
     .select("*")
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return data;
 }

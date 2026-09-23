@@ -151,7 +151,7 @@
         try {
           await updateCategorySortOrder(item.id, item.sort_order);
         } catch (e) {
-          // نتجاهل فشل عنصر واحد بصمت، الباقي يستمر يحفظ
+          alert("خطأ بحفظ الترتيب: " + e.message); // ============ تشخيصي مؤقت ============
         }
       }
     }

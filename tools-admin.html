@@ -89,7 +89,7 @@
         const visual = document.createElement("div");
         visual.className = "category-visual";
         visual.innerHTML = tool.image_value
-          ? `<img src="${tool.image_value}" alt="${tool.name}" />`
+          ? `<img src="${tool.image_value}" alt="${tool.name}" style="object-fit:contain;padding:10px;box-sizing:border-box" />`
           : `<span class="icon-text">🔗</span>`;
 
         const name = document.createElement("div");

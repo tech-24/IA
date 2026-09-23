@@ -59,13 +59,16 @@ async function uploadCategoryImage(file) {
 // -------------------------------------------------
 async function deleteCategoryImageFile(imageUrl) {
   const fileName = extractStorageFileName(imageUrl);
-  if (!fileName) return;
+  if (!fileName) {
+    alert("ما قدرنا نستخرج اسم ملف من الرابط: " + imageUrl); // ============ تشخيصي مؤقت ============
+    return;
+  }
   try {
     const { data, error } = await supabaseClient.storage.from(CATEGORY_BUCKET).remove([fileName]);
     if (error) {
       alert("خطأ بحذف صورة القسم القديمة: " + error.message); // ============ تشخيصي مؤقت ============
     } else {
-      alert("نتيجة الحذف: " + JSON.stringify(data)); // ============ تشخيصي مؤقت ============
+      alert("اسم الملف المُستخرج: " + fileName + "\nالرابط الكامل: " + imageUrl + "\nنتيجة الحذف: " + JSON.stringify(data)); // ============ تشخيصي مؤقت ============
     }
   } catch (e) {
     alert("استثناء أثناء حذف صورة القسم: " + e.message); // ============ تشخيصي مؤقت ============

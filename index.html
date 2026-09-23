@@ -32,8 +32,17 @@
        عرض الأقسام (قراءة فقط) — البنود والحالات تُضاف بخطوة لاحقة
        عند الضغط على قسم ============================================= -->
   <div class="main">
-    <h2>الأقسام</h2>
-    <div class="categories-grid" id="categoriesGrid"></div>
+    <!-- حقل بحث عن بند بالاسم — يشتغل فوري وانت تكتب، ويخفي شبكة الأقسام مؤقتًا -->
+    <div class="field" style="margin-bottom:10px">
+      <input type="text" id="itemSearchInput" placeholder="ابحث عن بند بالاسم..." />
+    </div>
+
+    <div id="searchResults" style="display:none"></div>
+
+    <div id="categoriesSection">
+      <h2>الأقسام</h2>
+      <div class="categories-grid" id="categoriesGrid"></div>
+    </div>
   </div>
   <div class="bottom-nav-spacer"></div>
 
@@ -47,6 +56,7 @@
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="categories.js"></script>
+  <script src="items.js"></script>
   <script src="circulars.js"></script>
   <script src="bottom-nav.js"></script>
   <script>
@@ -93,6 +103,69 @@
         grid.appendChild(card);
       });
     }
+
+    // -------------------------------------------------
+    // البحث عن بند بالاسم — فوري وانت تكتب، مع تأخير بسيط (debounce)
+    // عشان ما نرسل طلب لكل حرف، بس فرق زمني قصير جدًا بعد آخر ضغطة
+    // -------------------------------------------------
+    const searchInput = document.getElementById("itemSearchInput");
+    const searchResultsEl = document.getElementById("searchResults");
+    const categoriesSectionEl = document.getElementById("categoriesSection");
+    let searchDebounceTimer = null;
+
+    function renderSearchResults(items) {
+      searchResultsEl.innerHTML = "";
+
+      if (items.length === 0) {
+        searchResultsEl.innerHTML = '<div class="empty-hint">ما فيه بنود بهذا الاسم.</div>';
+        return;
+      }
+
+      const list = document.createElement("div");
+      list.className = "items-list";
+
+      items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "item-row" + (item.is_suspended ? " item-suspended" : "");
+
+        const categoryName = item.list && item.list.category ? item.list.category.name : "";
+        const listName = item.list ? item.list.name : "";
+
+        row.innerHTML = `
+          <div>
+            <div class="item-name">${item.name}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${categoryName} › ${listName}</div>
+          </div>
+        `;
+        row.addEventListener("click", () => {
+          window.location.href = `case-view.html?item_id=${item.id}`;
+        });
+        list.appendChild(row);
+      });
+
+      searchResultsEl.appendChild(list);
+    }
+
+    searchInput.addEventListener("input", () => {
+      const query = searchInput.value.trim();
+
+      clearTimeout(searchDebounceTimer);
+
+      if (!query) {
+        // الحقل فاضي: نرجّع شبكة الأقسام العادية ونخفي نتائج البحث
+        searchResultsEl.style.display = "none";
+        categoriesSectionEl.style.display = "block";
+        return;
+      }
+
+      searchDebounceTimer = setTimeout(async () => {
+        categoriesSectionEl.style.display = "none";
+        searchResultsEl.style.display = "block";
+        searchResultsEl.innerHTML = "<p>جارٍ البحث...</p>";
+        const results = await searchItems(query);
+        renderSearchResults(results);
+      }, 250);
+    });
 
     // ==================================================================
     // تشغيل الصفحة: التحقق من تسجيل الدخول، ثم عرض الأقسام

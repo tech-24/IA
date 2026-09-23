@@ -147,13 +147,16 @@
     // تحفظ الترتيب الجديد للأقسام بقاعدة البيانات بعد انتهاء السحب
     // -------------------------------------------------
     async function persistCategoryOrder(items) {
+      let report = "";
       for (const item of items) {
         try {
-          await updateCategorySortOrder(item.id, item.sort_order);
+          const data = await updateCategorySortOrder(item.id, item.sort_order);
+          report += `${item.name}: ترتيب جديد=${item.sort_order} — الصفوف المتأثرة: ${data.length}\n`;
         } catch (e) {
-          alert("خطأ بحفظ الترتيب: " + e.message); // ============ تشخيصي مؤقت ============
+          report += `${item.name}: خطأ — ${e.message}\n`;
         }
       }
+      alert(report); // ============ تشخيصي مؤقت ============
     }
 
     // -------------------------------------------------

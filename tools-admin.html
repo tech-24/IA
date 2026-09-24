@@ -53,6 +53,10 @@
 
       <div class="field" id="toolFileField" style="display:none">
         <label for="toolUrlFile">اختر ملف (PDF أو أي مستند)</label>
+        <!-- إشعار بالملف الحالي عند التعديل، بدل عرض رابط طويل مربك بحقل نصي -->
+        <div id="currentToolFileWrap" style="display:none;margin-bottom:8px;font-size:13px;color:var(--text-muted)">
+          📎 يوجد ملف مرفوع حاليًا — اختر ملف جديد بس لو تبي تستبدله
+        </div>
         <input type="file" id="toolUrlFile" />
       </div>
 
@@ -157,6 +161,7 @@
       document.getElementById("toolUrlFile").value = "";
       document.getElementById("toolFile").value = "";
       document.getElementById("currentToolImagePreviewWrap").style.display = "none";
+      document.getElementById("currentToolFileWrap").style.display = "none";
       toolModalError.textContent = "";
       deleteToolBtn.style.display = "none";
       setUrlType("link");
@@ -167,9 +172,23 @@
       editingToolId = tool.id;
       toolModalTitle.textContent = "تعديل الأداة";
       document.getElementById("toolName").value = tool.name;
-      document.getElementById("toolUrl").value = tool.url;
       document.getElementById("toolUrlFile").value = "";
       document.getElementById("toolFile").value = "";
+
+      // نميّز هل الرابط الحالي ملف مرفوع عندنا، أو رابط خارجي عادي
+      const isStoredFile = tool.url && tool.url.includes(SUPABASE_URL);
+      const currentFileWrap = document.getElementById("currentToolFileWrap");
+      if (isStoredFile) {
+        // ملف مرفوع: نخلي الوضع "ملف" ونعرض إشعار بدل الرابط الطويل المربك
+        document.getElementById("toolUrl").value = "";
+        currentFileWrap.style.display = "block";
+        setUrlType("file");
+      } else {
+        // رابط خارجي عادي: نعرضه كما هو بوضع "رابط"
+        document.getElementById("toolUrl").value = tool.url;
+        currentFileWrap.style.display = "none";
+        setUrlType("link");
+      }
 
       // نعرض معاينة الأيقونة الحالية فقط لو الأداة عندها أيقونة فعلاً
       const previewWrap = document.getElementById("currentToolImagePreviewWrap");
@@ -182,7 +201,6 @@
 
       toolModalError.textContent = "";
       deleteToolBtn.style.display = "inline-block";
-      setUrlType("link"); // نعرض الرابط الحالي دائمًا بوضع "رابط"، ولو رفع ملف جديد يستبدله
       toolModal.style.display = "flex";
     }
 
@@ -217,9 +235,11 @@
           });
           // لو رفع أيقونة أو ملف جديد يستبدل القديم، نحذف القديم فعليًا من التخزين
           if (file && oldTool.image_value) await deleteToolStorageFile(oldTool.image_value, TOOL_BUCKET);
-          // نحذف ملف الرابط القديم فعليًا لو كان محفوظ عندنا بالتخزين، سواء استُبدل بملف جديد أو برابط خارجي
+          // نحذف ملف الرابط القديم فعليًا بس لو الرابط تغيّر حقًا (رفع ملف جديد، أو
+          // كتب رابط نصي مختلف عن القديم) — مو لمجرد إن الوضع "رابط" مفعّل بالنافذة
           const oldUrlWasStoredFile = oldTool.url && oldTool.url.includes(SUPABASE_URL);
-          if ((hasFile || hasLink) && oldUrlWasStoredFile) {
+          const urlActuallyChanged = hasFile || (hasLink && url !== oldTool.url);
+          if (urlActuallyChanged && oldUrlWasStoredFile) {
             await deleteToolStorageFile(oldTool.url, TOOL_FILE_BUCKET);
           }
           const index = allTools.findIndex((t) => t.id === editingToolId);

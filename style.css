@@ -618,3 +618,96 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 .ios-toggle input:checked + .toggle-slider::before {
   transform: translateX(-18px); /* المقبض ينزلق لليسار عند التفعيل */
 }
+
+/* ================================================================
+   القائمة الجانبية (☰) — تظهر بكل الصفحات (المشرف والمفتش)
+   ================================================================ */
+.hamburger-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.side-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 60;
+}
+
+/* تنزلق من اليمين، وتاخذ جزء بسيط من الشاشة بس (مو الشاشة كاملة) */
+.side-drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 72%;
+  max-width: 280px;
+  background: var(--surface);
+  z-index: 61;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+.side-drawer.open { transform: translateX(0); }
+
+.close-drawer-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-bottom: 16px;
+  padding: 4px;
+}
+
+.side-drawer a,
+.side-drawer button.drawer-link {
+  display: block;
+  width: 100%;
+  padding: 13px 10px;
+  text-align: right;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text);
+  text-decoration: none;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.side-drawer a:hover,
+.side-drawer button.drawer-link:hover { background: var(--primary-lighter); }
+.side-drawer button.drawer-link.logout-link { color: #b91c1c; }
+
+/* ================================================================
+   صفحة "حول مساعد المفتش"
+   ================================================================ */
+.about-content {
+  max-width: 480px;
+  margin: 40px auto;
+  padding: 0 24px;
+  text-align: center;
+}
+.about-content p { font-size: 15px; line-height: 1.9; color: var(--text); }
+.about-rights { margin-top: 40px; font-size: 13px; color: var(--text-muted); line-height: 1.8; }
+
+/* زر رجوع بشكل سهم بس (بدون خلفية زر عادية) — حديث ومختصر */
+.icon-back-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+.icon-back-btn:hover { background: none; box-shadow: none; opacity: 0.75; }

@@ -18,11 +18,36 @@
 </head>
 <body>
   <header>
+    <button id="hamburgerBtn" class="hamburger-btn" aria-label="القائمة">☰</button>
     <h1 id="itemTitle">الحالات</h1>
     <div class="user-info">
-      <button id="backBtn" class="secondary">رجوع</button>
+      <button id="backBtn" class="icon-back-btn" aria-label="رجوع">↩</button>
     </div>
   </header>
+
+<div class="side-drawer-overlay" id="drawerOverlay" style="display:none"></div>
+<nav class="side-drawer" id="sideDrawer">
+  <button id="closeDrawerBtn" class="close-drawer-btn" aria-label="إغلاق">✕</button>
+  <a href="index.html">🏠 الصفحة الرئيسية</a>
+  <button class="drawer-link" id="syncBtn">🔄 مزامنة</button>
+  <a href="about.html">ℹ️ حول مساعد المفتش</a>
+  <button class="drawer-link logout-link" id="drawerLogoutBtn">🚪 تسجيل الخروج</button>
+</nav>
+<script>
+  document.getElementById("hamburgerBtn").addEventListener("click", () => {
+    document.getElementById("drawerOverlay").style.display = "block";
+    document.getElementById("sideDrawer").classList.add("open");
+  });
+  function closeSideDrawer() {
+    document.getElementById("drawerOverlay").style.display = "none";
+    document.getElementById("sideDrawer").classList.remove("open");
+  }
+  document.getElementById("closeDrawerBtn").addEventListener("click", closeSideDrawer);
+  document.getElementById("drawerOverlay").addEventListener("click", closeSideDrawer);
+  document.getElementById("syncBtn").addEventListener("click", () => location.reload());
+  document.getElementById("drawerLogoutBtn").addEventListener("click", logout);
+</script>
+
 
   <div class="main" style="padding-bottom:8px">
     <div class="categories-grid" id="casesGrid" style="margin-top:20px"></div>

@@ -21,17 +21,17 @@
     <button id="hamburgerBtn" class="hamburger-btn" aria-label="القائمة">☰</button>
     <h1>حالات البند</h1>
     <div class="user-info">
-      <button id="backListsBtn" class="icon-back-btn" aria-label="رجوع">↩</button>
+      <button id="backListsBtn" class="icon-back-btn" aria-label="رجوع"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg></button>
     </div>
   </header>
 
 <div class="side-drawer-overlay" id="drawerOverlay" style="display:none"></div>
 <nav class="side-drawer" id="sideDrawer">
   <button id="closeDrawerBtn" class="close-drawer-btn" aria-label="إغلاق">✕</button>
-  <a href="admin.html">🏠 الصفحة الرئيسية</a>
-  <button class="drawer-link" id="syncBtn">🔄 مزامنة</button>
-  <a href="about.html">ℹ️ حول مساعد المفتش</a>
-  <button class="drawer-link logout-link" id="drawerLogoutBtn">🚪 تسجيل الخروج</button>
+  <a href="admin.html"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"></path><path d="M5 10v10h14V10"></path></svg></span> الصفحة الرئيسية</a>
+  <button class="drawer-link" id="syncBtn"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span> مزامنة</button>
+  <a href="about.html"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span> حول مساعد المفتش</a>
+  <button class="drawer-link logout-link" id="drawerLogoutBtn"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></span> تسجيل الخروج</button>
 </nav>
 <script>
   document.getElementById("hamburgerBtn").addEventListener("click", () => {

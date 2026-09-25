@@ -670,7 +670,9 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 
 .side-drawer a,
 .side-drawer button.drawer-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   padding: 13px 10px;
   text-align: right;
@@ -684,9 +686,11 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   border-radius: 8px;
   cursor: pointer;
 }
+.side-drawer .drawer-icon { display: inline-flex; flex-shrink: 0; color: var(--primary); }
 .side-drawer a:hover,
 .side-drawer button.drawer-link:hover { background: var(--primary-lighter); }
 .side-drawer button.drawer-link.logout-link { color: #b91c1c; }
+.side-drawer button.drawer-link.logout-link .drawer-icon { color: #b91c1c; }
 
 /* ================================================================
    صفحة "حول مساعد المفتش"
@@ -705,9 +709,11 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   background: none;
   border: none;
   color: #fff;
-  font-size: 22px;
   cursor: pointer;
   padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
 }
 .icon-back-btn:hover { background: none; box-shadow: none; opacity: 0.75; }

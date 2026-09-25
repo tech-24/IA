@@ -90,7 +90,7 @@
         const visual = document.createElement("div");
         visual.className = "category-visual";
         if (cat.image_type === "upload" && cat.image_value) {
-          visual.innerHTML = `<img src="${cat.image_value}" alt="${cat.name}" />`;
+          visual.innerHTML = `<img src="${escapeHtml(cat.image_value)}" alt="${escapeHtml(cat.name)}" />`;
         } else {
           visual.innerHTML = `<span class="icon-text">${cat.image_value || "❔"}</span>`;
         }
@@ -140,8 +140,8 @@
 
         row.innerHTML = `
           <div>
-            <div class="item-name">${item.name}</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${categoryName} › ${listName}</div>
+            <div class="item-name">${escapeHtml(item.name)}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${escapeHtml(categoryName)} › ${escapeHtml(listName)}</div>
           </div>
         `;
         row.addEventListener("click", () => {

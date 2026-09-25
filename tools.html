@@ -59,9 +59,9 @@
         card.className = "tool-card";
         card.innerHTML = `
           <div class="tool-visual">
-            ${tool.image_value ? `<img src="${tool.image_value}" alt="${tool.name}" />` : `<span class="icon-text">🔗</span>`}
+            ${tool.image_value ? `<img src="${escapeHtml(tool.image_value)}" alt="${escapeHtml(tool.name)}" />` : `<span class="icon-text">🔗</span>`}
           </div>
-          <div class="tool-name">${tool.name}</div>
+          <div class="tool-name">${escapeHtml(tool.name)}</div>
         `;
         card.addEventListener("click", () => {
           window.open(tool.url, "_blank", "noopener,noreferrer");

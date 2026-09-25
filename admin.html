@@ -128,7 +128,7 @@
         const visual = document.createElement("div");
         visual.className = "category-visual";
         if (cat.image_type === "upload" && cat.image_value) {
-          visual.innerHTML = `<img src="${cat.image_value}" alt="${cat.name}" />`;
+          visual.innerHTML = `<img src="${escapeHtml(cat.image_value)}" alt="${escapeHtml(cat.name)}" />`;
         } else {
           visual.innerHTML = `<span class="icon-text">${cat.image_value || "❔"}</span>`;
         }

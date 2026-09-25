@@ -89,7 +89,7 @@
         thumb.className = "case-thumb";
         const firstImage = c.case_images && c.case_images[0];
         thumb.innerHTML = firstImage
-          ? `<img src="${firstImage.image_url}" alt="${c.name}" />`
+          ? `<img src="${escapeHtml(firstImage.image_url)}" alt="${escapeHtml(c.name)}" />`
           : `<span class="icon-text">❔</span>`;
 
         const title = document.createElement("div");

@@ -55,7 +55,7 @@
         <label for="toolUrlFile">اختر ملف (PDF أو أي مستند)</label>
         <!-- إشعار بالملف الحالي عند التعديل، بدل عرض رابط طويل مربك بحقل نصي -->
         <div id="currentToolFileWrap" style="display:none;margin-bottom:8px;font-size:13px;color:var(--text-muted)">
-          📎 يوجد ملف مرفوع حاليًا — اختر ملف جديد بس لو تبي تستبدله
+          📎 يوجد ملف مرفوع حاليًا
         </div>
         <input type="file" id="toolUrlFile" />
       </div>
@@ -106,7 +106,7 @@
         const visual = document.createElement("div");
         visual.className = "category-visual";
         visual.innerHTML = tool.image_value
-          ? `<img src="${tool.image_value}" alt="${tool.name}" style="object-fit:contain;padding:10px;box-sizing:border-box" />`
+          ? `<img src="${escapeHtml(tool.image_value)}" alt="${escapeHtml(tool.name)}" style="object-fit:contain;padding:10px;box-sizing:border-box" />`
           : `<span class="icon-text">🔗</span>`;
 
         const name = document.createElement("div");

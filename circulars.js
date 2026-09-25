@@ -53,10 +53,16 @@ async function deleteCircular(id) {
 // -------------------------------------------------
 // هل فيه تعميم واحد على الأقل ما قرأه المستخدم الحالي؟
 // تُستخدم لإظهار علامة التنبيه على تبويب "تعاميم" بالشريط السفلي
+// استعلام واحد بس (بدل اثنين): نجيب كل التعاميم مع سجل قراءة المستخدم الحالي
+// المدمج معها — وبفضل صلاحيات RLS على circular_reads، السجل المرتبط يرجع
+// فارغًا تلقائيًا لأي تعميم ما قرأه، بدون ما نحتاج نمرر معرّف المستخدم يدويًا
 // -------------------------------------------------
 async function hasUnreadCirculars() {
-  const [circulars, readIds] = await Promise.all([fetchCirculars(), fetchMyReadCircularIds()]);
-  return circulars.some((c) => !readIds.includes(c.id));
+  const { data, error } = await supabaseClient
+    .from("circulars")
+    .select("id, circular_reads(user_id)");
+  if (error) throw error;
+  return data.some((c) => !c.circular_reads || c.circular_reads.length === 0);
 }
 
 // -------------------------------------------------

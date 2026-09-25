@@ -105,7 +105,7 @@
         thumb.className = "case-thumb";
         const firstImage = c.case_images && c.case_images[0];
         if (firstImage) {
-          thumb.innerHTML = `<img src="${firstImage.image_url}" alt="${c.name}" />`;
+          thumb.innerHTML = `<img src="${escapeHtml(firstImage.image_url)}" alt="${escapeHtml(c.name)}" />`;
         } else {
           thumb.innerHTML = `<span class="icon-text">❔</span>`;
         }

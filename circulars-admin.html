@@ -85,10 +85,10 @@
         card.className = "circular-card";
         card.innerHTML = `
           <div class="circular-title-row">
-            <span class="circular-title">${c.title}</span>
+            <span class="circular-title">${escapeHtml(c.title)}</span>
           </div>
           <div class="circular-date">${formatDate(c.created_at)}</div>
-          <div class="circular-content">${c.content}</div>
+          <div class="circular-content">${escapeHtml(c.content)}</div>
         `;
         card.addEventListener("click", () => openEditCircularModal(c));
         circularsList.appendChild(card);

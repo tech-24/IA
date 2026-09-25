@@ -99,7 +99,7 @@
       items.forEach((item) => {
         const row = document.createElement("div");
         row.className = "item-row" + (item.is_suspended ? " item-suspended" : "");
-        row.innerHTML = `<span class="item-name">${item.name}</span>`;
+        row.innerHTML = `<span class="item-name">${escapeHtml(item.name)}</span>`;
         row.addEventListener("click", () => {
           window.location.href = `case-view.html?item_id=${item.id}`;
         });

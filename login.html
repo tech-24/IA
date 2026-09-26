@@ -51,7 +51,7 @@
 
       <div class="center" style="margin-top:14px">
         <!-- زر يبدّل بين وضع "تسجيل دخول" ووضع "إنشاء حساب جديد" -->
-        <button class="link-btn" id="toggleModeBtn">ما عندك حساب؟ سجّل حساب جديد</button>
+        <button class="link-btn" id="toggleModeBtn">ليس لديك حساب؟ أنشئ حسابًا جديدًا</button>
       </div>
     </div>
   </div>
@@ -72,14 +72,14 @@
     const errorMsg = document.getElementById("errorMsg");
     const successMsg = document.getElementById("successMsg");
 
-    // -------- الضغط على "ما عندك حساب؟" يبدّل نصوص الواجهة بين الوضعين --------
+    // -------- الضغط على "ليس لديك حساب؟" يبدّل نصوص الواجهة بين الوضعين --------
     toggleModeBtn.addEventListener("click", () => {
       mode = mode === "login" ? "signup" : "login";
       formTitle.textContent = mode === "login" ? "تسجيل الدخول" : "إنشاء حساب جديد";
       submitBtn.textContent = mode === "login" ? "دخول" : "إنشاء الحساب";
       toggleModeBtn.textContent = mode === "login"
-        ? "ما عندك حساب؟ سجّل حساب جديد"
-        : "عندك حساب؟ سجّل الدخول";
+        ? "ليس لديك حساب؟ أنشئ حسابًا جديدًا"
+        : "لديك حساب بالفعل؟ سجّل الدخول";
       errorMsg.textContent = "";
       successMsg.textContent = "";
     });
@@ -112,7 +112,7 @@
           mode = "login";
           formTitle.textContent = "تسجيل الدخول";
           submitBtn.textContent = "دخول";
-          toggleModeBtn.textContent = "ما عندك حساب؟ سجّل حساب جديد";
+          toggleModeBtn.textContent = "ليس لديك حساب؟ أنشئ حسابًا جديدًا";
         }
       } catch (e) {
         // أي خطأ من Supabase (بريد مستخدم من قبل، كلمة مرور قصيرة...) يظهر هنا

@@ -207,7 +207,7 @@
       itemsListEl.innerHTML = "";
 
       if (items.length === 0) {
-        itemsListEl.innerHTML = '<div class="empty-hint">لا توجد بنود بهذي القائمة بعد.</div>';
+        itemsListEl.innerHTML = '<div class="empty-hint">لا توجد بنود بهذه القائمة بعد.</div>';
       }
 
       items.forEach((item) => {
@@ -313,7 +313,7 @@
     document.getElementById("editListBtn").addEventListener("click", openEditListModal);
 
     document.getElementById("deleteListBtn").addEventListener("click", async () => {
-      const confirmed = confirm("هل أنت متأكد من حذف هذي القائمة؟ سيُحذف معها كل بنودها وحالاتها.");
+      const confirmed = confirm("هل أنت متأكد من حذف هذه القائمة؟ سيتم حذف جميع بنودها وحالاتها معها.");
       if (!confirmed) return;
 
       // نجلب بنود القائمة (من الذاكرة لو موجودة، أو من الخادم) وننظف صور حالاتها من التخزين

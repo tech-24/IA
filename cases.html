@@ -70,7 +70,7 @@
 
       <div class="field">
         <label for="caseMethod">شرح طريقة الرصد الصحيحة</label>
-        <textarea id="caseMethod" placeholder="اكتب هنا وش يلاحظه المفتش عشان يحدد هذي الحالة..."></textarea>
+        <textarea id="caseMethod" placeholder="اكتب هنا ما يلاحظه المفتش لتحديد هذه الحالة..."></textarea>
       </div>
 
       <!-- قسم الصور — يظهر فقط بعد إنشاء الحالة (أول ضغطة حفظ) -->
@@ -92,7 +92,7 @@
 
       <!-- زر الحذف يظهر فقط بعد إنشاء الحالة -->
       <div class="center" style="margin-top:10px">
-        <button class="link-btn" id="deleteCaseBtn" style="display:none;color:#b91c1c">حذف هذي الحالة</button>
+        <button class="link-btn" id="deleteCaseBtn" style="display:none;color:#b91c1c">حذف هذه الحالة</button>
       </div>
     </div>
   </div>
@@ -304,7 +304,7 @@
     });
 
     deleteCaseBtn.addEventListener("click", async () => {
-      const confirmed = confirm("هل أنت متأكد من حذف هذي الحالة وكل صورها؟");
+      const confirmed = confirm("هل أنت متأكد من حذف هذه الحالة وكل صورها؟");
       if (!confirmed) return;
       const current = allCases.find((c) => c.id === editingCaseId);
       await deleteCase(editingCaseId);

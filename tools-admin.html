@@ -104,7 +104,7 @@
       </div>
 
       <div class="center" style="margin-top:10px">
-        <button class="link-btn" id="deleteToolBtn" style="display:none;color:#b91c1c">حذف هذي الأداة</button>
+        <button class="link-btn" id="deleteToolBtn" style="display:none;color:#b91c1c">حذف هذه الأداة</button>
       </div>
     </div>
   </div>
@@ -288,7 +288,7 @@
     });
 
     deleteToolBtn.addEventListener("click", async () => {
-      const confirmed = confirm("هل أنت متأكد من حذف هذي الأداة؟");
+      const confirmed = confirm("هل أنت متأكد من حذف هذه الأداة؟");
       if (!confirmed) return;
       const tool = allTools.find((t) => t.id === editingToolId);
       await deleteTool(editingToolId);

@@ -69,6 +69,13 @@
 
       <div class="case-images-row" id="caseDetailImages"></div>
 
+      <div id="caseDetailNoteWrap" style="display:none;margin-top:10px">
+        <label style="font-size:13px;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px">
+          ملاحظة
+        </label>
+        <p id="caseDetailNote" style="font-size:14px;line-height:1.8;white-space:pre-wrap"></p>
+      </div>
+
       <div style="margin-top:10px">
         <label style="font-size:13px;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px">
           طريقة الرصد الصحيحة
@@ -137,6 +144,15 @@
       document.getElementById("caseDetailTitle").textContent = c.name;
       document.getElementById("caseDetailMethod").textContent =
         c.monitoring_method || "لا يوجد شرح مضاف لهذه الحالة.";
+
+      // قسم الملاحظة يظهر بس لو المشرف كتب فيه شي فعلاً
+      const noteWrap = document.getElementById("caseDetailNoteWrap");
+      if (c.note && c.note.trim()) {
+        document.getElementById("caseDetailNote").textContent = c.note;
+        noteWrap.style.display = "block";
+      } else {
+        noteWrap.style.display = "none";
+      }
 
       const imagesRow = document.getElementById("caseDetailImages");
       imagesRow.innerHTML = "";

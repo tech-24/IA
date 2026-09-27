@@ -82,6 +82,12 @@
         <input type="file" id="caseImageInput" accept="image/*" style="display:none" />
       </div>
 
+      <!-- ملاحظة يكتبها المشرف فقط، تظهر ثابتة للمفتش تحت الصور -->
+      <div class="field">
+        <label for="caseNote">ملاحظة (اختياري)</label>
+        <textarea id="caseNote"></textarea>
+      </div>
+
       <div class="error" id="caseModalError"></div>
       <div class="success" id="caseModalSuccess"></div>
 
@@ -183,6 +189,7 @@
       caseModalTitle.textContent = "إضافة حالة جديدة";
       document.getElementById("caseName").value = "";
       document.getElementById("caseMethod").value = "";
+      document.getElementById("caseNote").value = "";
       caseModalError.textContent = "";
       caseModalSuccess.textContent = "";
       imagesSection.style.display = "none"; // ما فيه حالة بعد، ما نقدر نرفع صور
@@ -195,6 +202,7 @@
       caseModalTitle.textContent = "تعديل الحالة";
       document.getElementById("caseName").value = c.name;
       document.getElementById("caseMethod").value = c.monitoring_method || "";
+      document.getElementById("caseNote").value = c.note || "";
       caseModalError.textContent = "";
       caseModalSuccess.textContent = "";
       imagesSection.style.display = "block";
@@ -270,6 +278,7 @@
     document.getElementById("saveCaseBtn").addEventListener("click", async () => {
       const name = document.getElementById("caseName").value.trim();
       const monitoring_method = document.getElementById("caseMethod").value.trim();
+      const note = document.getElementById("caseNote").value.trim();
       if (!name) {
         caseModalError.textContent = "اكتب اسم الحالة";
         return;
@@ -279,12 +288,12 @@
       saveBtn.disabled = true; // يمنع تكرار الضغط والتسبب بإضافة الحالة أكثر من مرة
       try {
         if (editingCaseId) {
-          const updated = await updateCase(editingCaseId, { name, monitoring_method });
+          const updated = await updateCase(editingCaseId, { name, monitoring_method, note });
           const index = allCases.findIndex((c) => c.id === editingCaseId);
           allCases[index] = { ...updated, case_images: allCases[index].case_images };
           showSuccess("تم الحفظ ✓");
         } else {
-          const created = await addCase({ item_id: itemId, name, monitoring_method });
+          const created = await addCase({ item_id: itemId, name, monitoring_method, note });
           allCases.push(created);
           editingCaseId = created.id;
           // نفتح قسم الصور فورًا بنفس النافذة بعد إنشاء الحالة

@@ -64,7 +64,6 @@
           <span class="toggle-slider"></span>
         </label>
       </div>
-      <div class="tools-hint">مفعّل: يشاهد المفتش كل بنود القسم. مغلق: يشاهد البنود المشتركة فقط، ويختار نوع المنشأة لعرض بقية بنودها.</div>
     </div>
 
     <!-- ==================== شريط تبويبات القوائم ====================
@@ -80,6 +79,9 @@
         <button class="secondary" id="deleteListBtn" style="color:#b91c1c">حذف القائمة</button>
       </div>
     </div>
+
+    <!-- رسالة حالة حفظ الترتيب (تظهر فقط بوضع الترتيب) -->
+    <div class="reorder-status" id="reorderStatus" style="display:none"></div>
 
     <!-- بنود القائمة النشطة -->
     <div class="items-list" id="itemsList"></div>
@@ -112,10 +114,9 @@
       </div>
       <!-- تحديد المنشأة: يظهر فقط لو للقسم أنواع منشآت. بدون اختيار = مشترك للكل -->
       <div class="field" id="itemFacilityField" style="display:none">
-        <label>المنشأة</label>
-        <button type="button" class="secondary" id="itemFacilityBtn" style="align-self:flex-start">تحديد المنشأة</button>
-        <div class="facility-picker-summary" id="itemFacilitySummary">مشترك للكل</div>
-        <div id="itemFacilityList" style="display:none"></div>
+        <label for="itemFacilitySelect">المنشأة</label>
+        <select id="itemFacilitySelect"></select>
+        <div class="facility-chips" id="itemFacilityChips"></div>
       </div>
       <!-- خيار إيقاف البند مؤقتًا حسب التوجيه — يظل ظاهرًا للمفتش لكن بشكل مختلف (رمادي مشطوب) -->
       <div class="field">
@@ -185,6 +186,7 @@
 
     const listsTabs = document.getElementById("listsTabs");
     const listPanelHeader = document.getElementById("listPanelHeader");
+    const reorderStatusEl = document.getElementById("reorderStatus");
     const activeListNameEl = document.getElementById("activeListName");
     const itemsListEl = document.getElementById("itemsList");
     const addItemBtnWrap = document.getElementById("addItemBtnWrap");
@@ -200,6 +202,7 @@
         tab.className = "list-tab" + (list.id === activeListId ? " active" : "");
         tab.textContent = list.name;
         tab.addEventListener("click", async () => {
+          showReorderStatus("", "");
           activeListId = list.id;
           renderTabs();
           await showListPanel();
@@ -256,34 +259,8 @@
         itemsListEl.innerHTML = '<div class="empty-hint">لا توجد بنود بهذه القائمة بعد.</div>';
       }
 
-      items.forEach((item) => {
-        const row = document.createElement("div");
-        row.className = "item-row" + (item.is_suspended ? " item-suspended" : "");
-        // وسوم أنواع المنشآت المرتبط بها البند (لا شيء = مشترك للكل)
-        const badges = (item.item_facility_types || [])
-          .map((t) => typeNameById(t.facility_type_id))
-          .filter(Boolean)
-          .map((n) => `<span class="facility-badge">${escapeHtml(n)}</span>`)
-          .join("");
-        row.innerHTML = `<div class="item-main"><span class="item-name">${escapeHtml(item.name)}</span>${
-          badges ? `<div class="facility-badges">${badges}</div>` : ""
-        }</div>`;
-
-        const editBtn = document.createElement("button");
-        editBtn.className = "secondary";
-        editBtn.textContent = "تعديل";
-        editBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          openEditItemModal(item);
-        });
-        row.appendChild(editBtn);
-
-        // الضغط على الصف نفسه ينقل لصفحة حالات هذا البند
-        row.addEventListener("click", () => {
-          window.location.href = `cases.html?item_id=${item.id}`;
-        });
-
-        itemsListEl.appendChild(row);
+      items.forEach((item, index) => {
+        itemsListEl.appendChild(buildItemRow(item, index, items));
       });
 
       addItemBtnWrap.innerHTML = "";
@@ -292,6 +269,271 @@
       addBtn.textContent = "+ إضافة بند جديد";
       addBtn.addEventListener("click", openAddItemModal);
       addItemBtnWrap.appendChild(addBtn);
+    }
+
+    // اسم البند + وسوم أنواع المنشآت المرتبط بها (لا شيء = مشترك للكل)
+    function itemMainHtml(item) {
+      const badges = (item.item_facility_types || [])
+        .map((t) => typeNameById(t.facility_type_id))
+        .filter(Boolean)
+        .map((n) => `<span class="facility-badge">${escapeHtml(n)}</span>`)
+        .join("");
+      return `<span class="item-name">${escapeHtml(item.name)}</span>${
+        badges ? `<div class="facility-badges">${badges}</div>` : ""
+      }`;
+    }
+
+    // ==================================================================
+    // ترتيب البنود: مقبض سحب ⠿ وسهمان ▲▼ بكل بند، وحفظ تلقائي بعد كل نقل
+    // ==================================================================
+    const GRIP_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>';
+    const UP_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"></polyline></svg>';
+    const DOWN_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+
+    // بعد انتهاء سحب نتجاهل أي "ضغطة" متأخرة يولّدها المتصفح، حتى لا تفتح البند بالغلط
+    let suppressRowClickUntil = 0;
+
+    // موضع الإفلات: عدد الصفوف الأخرى التي منتصفها أعلى من مركز الصف المسحوب
+    function computeDropIndex(mids, draggedIndex, draggedCenter) {
+      let target = 0;
+      mids.forEach((m, i) => {
+        if (i !== draggedIndex && m < draggedCenter) target++;
+      });
+      return target;
+    }
+
+    // إزاحة كل صف أثناء السحب لفتح فراغ مكان الإفلات (الصف المسحوب نفسه يتبع الإصبع)
+    function computeOffsets(count, index, target, shift) {
+      const offsets = [];
+      for (let i = 0; i < count; i++) {
+        let offset = 0;
+        if (i !== index) {
+          if (index < target && i > index && i <= target) offset = -shift;
+          else if (index > target && i >= target && i < index) offset = shift;
+        }
+        offsets.push(offset);
+      }
+      return offsets;
+    }
+
+    // صف البند: [مقبض] [الاسم — الضغط عليه يفتح حالات البند] [أسهم] [تعديل]
+    function buildItemRow(item, index, items) {
+      const row = document.createElement("div");
+      row.className = "item-row" + (item.is_suspended ? " item-suspended" : "");
+      row.dataset.id = item.id;
+
+      // المقبض والأسهم تظهر فقط لو فيه بندان أو أكثر
+      const canReorder = items.length >= 2;
+
+      if (canReorder) {
+        const handle = document.createElement("div");
+        handle.className = "reorder-handle";
+        handle.setAttribute("aria-label", "اسحب لتغيير الترتيب");
+        handle.innerHTML = GRIP_SVG;
+        handle.addEventListener("pointerdown", (e) => startDrag(e, index));
+        handle.addEventListener("click", (e) => e.stopPropagation()); // الضغط على المقبض ما يفتح البند
+        row.appendChild(handle);
+      }
+
+      const main = document.createElement("div");
+      main.className = "item-main";
+      main.innerHTML = itemMainHtml(item);
+      row.appendChild(main);
+
+      if (canReorder) {
+        const arrows = document.createElement("div");
+        arrows.className = "reorder-arrows";
+
+        const up = document.createElement("button");
+        up.type = "button";
+        up.setAttribute("aria-label", "تحريك للأعلى");
+        up.innerHTML = UP_SVG;
+        up.disabled = index === 0;
+        up.addEventListener("click", (e) => {
+          e.stopPropagation();
+          moveItem(index, index - 1);
+        });
+
+        const down = document.createElement("button");
+        down.type = "button";
+        down.setAttribute("aria-label", "تحريك للأسفل");
+        down.innerHTML = DOWN_SVG;
+        down.disabled = index === items.length - 1;
+        down.addEventListener("click", (e) => {
+          e.stopPropagation();
+          moveItem(index, index + 1);
+        });
+
+        arrows.appendChild(up);
+        arrows.appendChild(down);
+        row.appendChild(arrows);
+      }
+
+      const editBtn = document.createElement("button");
+      editBtn.className = "secondary";
+      editBtn.textContent = "تعديل";
+      editBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openEditItemModal(item);
+      });
+      row.appendChild(editBtn);
+
+      // الضغط على الصف نفسه ينقل لصفحة حالات هذا البند
+      row.addEventListener("click", () => {
+        if (Date.now() < suppressRowClickUntil) return;
+        window.location.href = `cases.html?item_id=${item.id}`;
+      });
+
+      return row;
+    }
+
+    // نقل بند من موضع لآخر بالذاكرة، ثم رسم القائمة وحفظ الترتيب
+    function moveItem(from, to) {
+      const items = itemsCacheByList[activeListId];
+      if (!items || from === to || to < 0 || to >= items.length) return;
+      const [moved] = items.splice(from, 1);
+      items.splice(to, 0, moved);
+      renderListPanel();
+      flashRow(moved.id);
+      queueSave(activeListId);
+    }
+
+    // تظليل مؤقت للبند بعد نقله ليعرف المشرف وين صار
+    function flashRow(itemId) {
+      const row = itemsListEl.querySelector(`.item-row[data-id="${itemId}"]`);
+      if (!row) return;
+      row.classList.add("just-moved");
+      setTimeout(() => row.classList.remove("just-moved"), 900);
+    }
+
+    // ---------- السحب ----------
+    // مهم: لا نحرّك عناصر الصفحة (DOM) أثناء السحب، بل نستخدم transform فقط،
+    // ونستمع لأحداث الإصبع على window، وننفّذ النقل الفعلي عند الإفلات فقط.
+    // هذا يتجنّب مشكلة السحب باللمس اللي ما كانت تسجّل لحظة الإفلات فيما سبق.
+    let drag = null;
+
+    function startDrag(e, index) {
+      if (drag) return;
+      e.preventDefault();
+      const rows = Array.from(itemsListEl.querySelectorAll(".item-row"));
+      const scrollAtStart = window.scrollY;
+      const metrics = rows.map((r) => {
+        const b = r.getBoundingClientRect();
+        return { top: b.top + scrollAtStart, height: b.height };
+      });
+      drag = {
+        index,
+        rows,
+        metrics,
+        startDocY: e.clientY + scrollAtStart,
+        clientY: e.clientY,
+        target: index,
+        gap: parseFloat(getComputedStyle(itemsListEl).rowGap) || 10,
+        raf: null,
+      };
+      rows[index].classList.add("dragging");
+      window.addEventListener("pointermove", onDragMove, { passive: false });
+      window.addEventListener("pointerup", onDragEnd);
+      window.addEventListener("pointercancel", onDragEnd);
+      drag.raf = requestAnimationFrame(autoScrollTick);
+    }
+
+    function onDragMove(e) {
+      if (!drag) return;
+      e.preventDefault();
+      drag.clientY = e.clientY;
+      updateDrag();
+    }
+
+    function updateDrag() {
+      const d = drag;
+      const dy = d.clientY + window.scrollY - d.startDocY;
+      const dragged = d.metrics[d.index];
+      const draggedCenter = dragged.top + dragged.height / 2 + dy;
+      const mids = d.metrics.map((m) => m.top + m.height / 2);
+      d.target = computeDropIndex(mids, d.index, draggedCenter);
+
+      const offsets = computeOffsets(d.rows.length, d.index, d.target, dragged.height + d.gap);
+      d.rows.forEach((row, i) => {
+        if (i === d.index) row.style.transform = `translateY(${dy}px)`;
+        else row.style.transform = offsets[i] ? `translateY(${offsets[i]}px)` : "";
+      });
+    }
+
+    // تمرير تلقائي للصفحة عند اقتراب الإصبع من حافة الشاشة (للقوائم الطويلة)
+    function autoScrollTick() {
+      if (!drag) return;
+      const edge = 90;
+      const maxSpeed = 16;
+      const y = drag.clientY;
+      let speed = 0;
+      if (y < edge) speed = -maxSpeed * Math.min(1, (edge - y) / edge);
+      else if (y > window.innerHeight - edge) speed = maxSpeed * Math.min(1, (y - (window.innerHeight - edge)) / edge);
+      if (speed !== 0) {
+        window.scrollBy(0, Math.round(speed));
+        updateDrag();
+      }
+      drag.raf = requestAnimationFrame(autoScrollTick);
+    }
+
+    function onDragEnd() {
+      if (!drag) return;
+      const d = drag;
+      drag = null;
+      suppressRowClickUntil = Date.now() + 500;
+      cancelAnimationFrame(d.raf);
+      window.removeEventListener("pointermove", onDragMove);
+      window.removeEventListener("pointerup", onDragEnd);
+      window.removeEventListener("pointercancel", onDragEnd);
+      d.rows.forEach((r) => {
+        r.style.transform = "";
+        r.classList.remove("dragging");
+      });
+      if (d.target !== d.index) moveItem(d.index, d.target);
+    }
+
+    // ---------- الحفظ التلقائي ----------
+    // نحفظ بالتسلسل (كل حفظ ينتظر اللي قبله)، وكل حفظ يرسل الترتيب الحالي كاملًا
+    let saveChain = Promise.resolve();
+    let pendingSaves = 0;
+
+    function showReorderStatus(text, kind) {
+      reorderStatusEl.textContent = text;
+      reorderStatusEl.className = "reorder-status" + (kind ? " " + kind : "");
+      reorderStatusEl.style.display = text ? "block" : "none";
+    }
+
+    function queueSave(listId) {
+      pendingSaves++;
+      showReorderStatus("جارٍ الحفظ...", "");
+      saveChain = saveChain.then(async () => {
+        try {
+          const items = itemsCacheByList[listId];
+          if (items) {
+            await reorderItems(items.map((i) => i.id));
+            items.forEach((it, idx) => {
+              it.sort_order = idx;
+            });
+          }
+          pendingSaves--;
+          if (pendingSaves === 0) {
+            showReorderStatus("تم الحفظ ✓", "success");
+            setTimeout(() => {
+              if (pendingSaves === 0 && reorderStatusEl.textContent === "تم الحفظ ✓") showReorderStatus("", "");
+            }, 2000);
+          }
+        } catch (e) {
+          pendingSaves--;
+          const detail = e && e.message ? e.message : "";
+          const text = /reorder_items|function/i.test(detail)
+            ? "تعذّر حفظ الترتيب — تأكد من تشغيل سكربت SQL الجديد بـ Supabase"
+            : "تعذّر حفظ الترتيب: " + detail;
+          // نعيد جلب الترتيب الفعلي من الخادم لنعرض الحقيقة بدل ترتيب لم يُحفظ
+          delete itemsCacheByList[listId];
+          if (listId === activeListId) await showListPanel();
+          showReorderStatus(text, "error");
+        }
+      });
     }
 
     // -------------------------------------------------
@@ -423,46 +665,67 @@
     }
 
     function setupFacilityPicker(initialIds) {
-      selectedTypeIds = [...initialIds];
+      // نتجاهل أي نوع لم يعد موجودًا (محذوف) حتى لا يُرسل للحفظ
+      selectedTypeIds = initialIds.filter((id) => typeNameById(id));
       document.getElementById("itemFacilityField").style.display = facilityFieldActive() ? "flex" : "none";
-      document.getElementById("itemFacilityList").style.display = "none";
       renderFacilityPicker();
-      updateFacilitySummary();
     }
 
+    // قائمة منسدلة فيها الأنواع غير المختارة، والمختارة تظهر كوسوم (× للإزالة)
+    // لا شيء مختار = مشترك للكل
     function renderFacilityPicker() {
-      const box = document.getElementById("itemFacilityList");
-      box.innerHTML = "";
-      allTypes.forEach((t) => {
-        const label = document.createElement("label");
-        label.className = "facility-check";
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.checked = selectedTypeIds.includes(t.id);
-        cb.addEventListener("change", () => {
-          if (cb.checked) {
-            if (!selectedTypeIds.includes(t.id)) selectedTypeIds.push(t.id);
-          } else {
-            selectedTypeIds = selectedTypeIds.filter((id) => id !== t.id);
-          }
-          updateFacilitySummary();
+      const select = document.getElementById("itemFacilitySelect");
+      const chips = document.getElementById("itemFacilityChips");
+
+      select.innerHTML = "";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "تحديد المنشأة";
+      select.appendChild(placeholder);
+      allTypes
+        .filter((t) => !selectedTypeIds.includes(t.id))
+        .forEach((t) => {
+          const option = document.createElement("option");
+          option.value = t.id;
+          option.textContent = t.name;
+          select.appendChild(option);
         });
-        const span = document.createElement("span");
-        span.textContent = t.name;
-        label.appendChild(cb);
-        label.appendChild(span);
-        box.appendChild(label);
+      select.value = "";
+      select.disabled = allTypes.every((t) => selectedTypeIds.includes(t.id)); // كل الأنواع مختارة
+
+      chips.innerHTML = "";
+      if (selectedTypeIds.length === 0) {
+        const none = document.createElement("span");
+        none.className = "facility-picker-summary";
+        none.textContent = "مشترك للكل";
+        chips.appendChild(none);
+        return;
+      }
+      selectedTypeIds.forEach((id) => {
+        const name = typeNameById(id);
+        if (!name) return;
+        const chip = document.createElement("span");
+        chip.className = "facility-chip";
+        const label = document.createElement("span");
+        label.textContent = name;
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.setAttribute("aria-label", "إزالة");
+        remove.textContent = "×";
+        remove.addEventListener("click", () => {
+          selectedTypeIds = selectedTypeIds.filter((x) => x !== id);
+          renderFacilityPicker();
+        });
+        chip.appendChild(label);
+        chip.appendChild(remove);
+        chips.appendChild(chip);
       });
     }
 
-    function updateFacilitySummary() {
-      const names = selectedTypeIds.map(typeNameById).filter(Boolean);
-      document.getElementById("itemFacilitySummary").textContent = names.length ? names.join("، ") : "مشترك للكل";
-    }
-
-    document.getElementById("itemFacilityBtn").addEventListener("click", () => {
-      const box = document.getElementById("itemFacilityList");
-      box.style.display = box.style.display === "none" ? "block" : "none";
+    document.getElementById("itemFacilitySelect").addEventListener("change", (e) => {
+      const id = e.target.value;
+      if (id && !selectedTypeIds.includes(id)) selectedTypeIds.push(id);
+      renderFacilityPicker();
     });
 
     document.getElementById("cancelItemBtn").addEventListener("click", () => {
@@ -489,7 +752,9 @@
           saved.item_facility_types = previous ? previous.item_facility_types || [] : [];
           if (index !== -1) items[index] = saved;
         } else {
-          saved = await addItem({ list_id: activeListId, name, is_suspended });
+          // البند الجديد دائمًا آخر القائمة (حتى بعد الترتيب اليدوي)
+          const nextOrder = items.length > 0 ? Math.max(...items.map((i) => Number(i.sort_order) || 0)) + 1 : 0;
+          saved = await addItem({ list_id: activeListId, name, is_suspended, sort_order: nextOrder });
           saved.item_facility_types = [];
           items.push(saved);
         }

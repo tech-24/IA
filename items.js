@@ -71,10 +71,14 @@ async function fetchItems(listId) {
 // إضافة بند جديد تحت قائمة معيّنة — ترجع الصف المُضاف نفسه
 // is_suspended: هل البند موقوف حسب التوجيه (افتراضيًا لا)
 // -------------------------------------------------
-async function addItem({ list_id, name, is_suspended = false }) {
+async function addItem({ list_id, name, is_suspended = false, sort_order }) {
+  // sort_order: يُمرَّر عند الإضافة ليكون البند الجديد آخر القائمة (بعد أي ترتيب يدوي)
+  const row = { list_id, name, is_suspended };
+  if (sort_order !== undefined) row.sort_order = sort_order;
+
   const { data, error } = await supabaseClient
     .from("items")
-    .insert({ list_id, name, is_suspended })
+    .insert(row)
     .select()
     .single();
   if (error) throw error;
@@ -151,4 +155,23 @@ async function deleteItemsByIds(ids) {
   if (ids.length === 0) return;
   const { error } = await supabaseClient.from("items").delete().in("id", ids);
   if (error) throw error;
+}
+
+// ==================================================================
+// ترتيب البنود يدويًا
+// ==================================================================
+
+// -------------------------------------------------
+// حفظ ترتيب بنود قائمة كاملة بطلب واحد
+// orderedIds: معرّفات كل بنود القائمة مرتبة كما يريدها المشرف
+// الدالة بقاعدة البيانات ترجع عدد الصفوف التي تحدّثت فعلًا، ونتأكد أنه يساوي
+// عدد البنود — وإلا نرمي خطأ بدل ما نعتبر الحفظ نجح (لتجنّب النجاح الوهمي)
+// -------------------------------------------------
+async function reorderItems(orderedIds) {
+  if (orderedIds.length === 0) return;
+  const { data, error } = await supabaseClient.rpc("reorder_items", { item_ids: orderedIds });
+  if (error) throw error;
+  if (data !== orderedIds.length) {
+    throw new Error("لم يُحفظ الترتيب بالكامل (تحدّث " + data + " من " + orderedIds.length + " بند)");
+  }
 }

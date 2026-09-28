@@ -336,8 +336,7 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   align-items: center;
   cursor: pointer;
   gap: 8px;
-  position: relative;
-  transition: box-shadow 0.12s ease, border-color 0.12s ease, transform 0.15s ease, background 0.4s ease;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease, background 0.4s ease;
 }
 .item-row:hover { box-shadow: var(--shadow-sm); border-color: var(--primary); }
 .item-row .item-name {
@@ -820,26 +819,8 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 .facility-select:focus { outline: none; box-shadow: 0 0 0 3px rgba(51, 121, 189, 0.15); }
 
 /* ================================================================
-   ترتيب البنود بلوحة المشرف: مقبض سحب + أسهم بكل بند
+   ترتيب البنود بلوحة المشرف: أسهم ▲▼ بكل بند
    ================================================================ */
-
-/* مقبض السحب: touch-action:none يمنع المتصفح من تمرير الصفحة أثناء السحب من المقبض فقط */
-.reorder-handle {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 44px;
-  color: var(--text-muted);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  border-radius: 8px;
-}
-.reorder-handle:active { background: var(--primary-lighter); }
 
 .reorder-arrows { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
 .item-row .reorder-arrows button {
@@ -856,13 +837,6 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 }
 .item-row .reorder-arrows button:disabled { opacity: 0.35; cursor: default; }
 
-/* الصف المسحوب حاليًا */
-.item-row.dragging {
-  z-index: 20;
-  transition: none;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22);
-  border-color: var(--primary);
-}
 /* تظليل مؤقت للبند بعد نقله */
 .item-row.just-moved { background: #e0efff; }
 

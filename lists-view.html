@@ -19,7 +19,7 @@
 <body>
   <header>
     <button id="hamburgerBtn" class="hamburger-btn" aria-label="القائمة">☰</button>
-    <h1 id="categoryTitle">البنود</h1>
+    <h1>البنود</h1>
     <div class="user-info">
       <button id="backHomeBtn" class="icon-back-btn" aria-label="رجوع"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg></button>
     </div>
@@ -50,6 +50,12 @@
 
 
   <div class="main" style="padding-bottom:8px">
+    <!-- اسم القسم + قائمة منسدلة لنوع المنشأة (تظهر فقط لو المشرف فعّل التصفية وللقسم أنواع) -->
+    <div class="category-heading-row">
+      <h2 id="categoryTitle"></h2>
+      <select class="facility-select" id="facilitySelect" style="display:none" aria-label="نوع المنشأة"></select>
+    </div>
+
     <!-- شريط تبويبات القوائم — سحب أو ضغط مباشر، بدون تبويب "إضافة" (قراءة فقط) -->
     <div class="lists-tabs" id="listsTabs"></div>
 
@@ -81,6 +87,12 @@
     let allLists = [];
     let activeListId = null;
 
+    // تصفية البنود حسب نوع المنشأة
+    let facilityTypes = [];          // أنواع منشآت هذا القسم
+    let filterActive = false;        // هل التصفية مفعّلة لهذا القسم؟
+    let selectedFacilityId = "";     // "" = البنود المشتركة فقط
+    const FACILITY_KEY = "facility_choice_" + categoryId; // يُحفظ الاختيار خلال الجلسة
+
     const listsTabs = document.getElementById("listsTabs");
     const activeListNameEl = document.getElementById("activeListName");
     const itemsListEl = document.getElementById("itemsList");
@@ -104,6 +116,48 @@
     }
 
     // -------------------------------------------------
+    // هل يظهر البند للمفتش حسب المنشأة المختارة؟
+    // - بند بدون أي نوع = مشترك، يظهر دائمًا
+    // - بند مرتبط بأنواع = يظهر فقط لو نوعه (أحد أنواعه) هو المختار
+    // -------------------------------------------------
+    function isItemVisible(item) {
+      const tags = (item.item_facility_types || []).map((t) => t.facility_type_id);
+      if (tags.length === 0) return true;
+      return selectedFacilityId !== "" && tags.includes(selectedFacilityId);
+    }
+
+    function setupFacilitySelect() {
+      const select = document.getElementById("facilitySelect");
+      select.innerHTML = "";
+
+      const commonOption = document.createElement("option");
+      commonOption.value = "";
+      commonOption.textContent = "البنود المشتركة";
+      select.appendChild(commonOption);
+
+      facilityTypes.forEach((t) => {
+        const option = document.createElement("option");
+        option.value = t.id;
+        option.textContent = t.name;
+        select.appendChild(option);
+      });
+
+      // نستعيد اختيار الجلسة لو كان النوع ما زال موجودًا
+      const saved = sessionStorage.getItem(FACILITY_KEY);
+      if (saved && facilityTypes.some((t) => t.id === saved)) selectedFacilityId = saved;
+      select.value = selectedFacilityId;
+
+      select.style.display = "inline-block";
+      filterActive = true;
+
+      select.addEventListener("change", async () => {
+        selectedFacilityId = select.value;
+        sessionStorage.setItem(FACILITY_KEY, selectedFacilityId);
+        await renderItems();
+      });
+    }
+
+    // -------------------------------------------------
     // رسم بنود القائمة النشطة — البند الموقوف رمادي ومشطوب
     // الضغط على أي بند يفتح صفحة حالاته
     // -------------------------------------------------
@@ -113,7 +167,8 @@
       activeListNameEl.textContent = activeList.name;
 
       itemsListEl.innerHTML = "<p>جارٍ التحميل...</p>";
-      const items = await fetchItems(activeListId);
+      const allItems = await fetchItems(activeListId);
+      const items = filterActive ? allItems.filter(isItemVisible) : allItems;
       itemsListEl.innerHTML = "";
 
       if (items.length === 0) {
@@ -152,6 +207,17 @@
 
       const category = await fetchCategoryById(categoryId);
       document.getElementById("categoryTitle").textContent = category.name;
+
+      // التصفية تعمل فقط لو المشرف أوقف "عرض جميع البنود" وللقسم أنواع منشآت
+      // (لو الإعداد غير موجود بعد، نعرض كل البنود كما كان)
+      if (category.show_all_items === false) {
+        try {
+          facilityTypes = await fetchFacilityTypes(categoryId);
+        } catch (e) {
+          facilityTypes = [];
+        }
+        if (facilityTypes.length > 0) setupFacilitySelect();
+      }
 
       document.getElementById("backHomeBtn").addEventListener("click", () => {
         window.history.back();

@@ -122,3 +122,68 @@ async function deleteCategory(id) {
   const { error } = await supabaseClient.from("categories").delete().eq("id", id);
   if (error) throw error;
 }
+
+// ==================================================================
+// أنواع المنشآت (حلاق، مغسلة...) — تابعة لقسم معيّن
+// ==================================================================
+
+// -------------------------------------------------
+// جلب أنواع منشآت قسم معيّن (ترتيب ثابت: sort_order ثم تاريخ الإضافة)
+// -------------------------------------------------
+async function fetchFacilityTypes(categoryId) {
+  const { data, error } = await supabaseClient
+    .from("facility_types")
+    .select("*")
+    .eq("category_id", categoryId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+// -------------------------------------------------
+// إضافة نوع منشأة جديد — ترجع الصف المُضاف
+// -------------------------------------------------
+async function addFacilityType({ category_id, name }) {
+  const { data, error } = await supabaseClient
+    .from("facility_types")
+    .insert({ category_id, name })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// -------------------------------------------------
+// تعديل اسم نوع منشأة — ترجع الصف بعد التعديل
+// -------------------------------------------------
+async function updateFacilityType(id, { name }) {
+  const { data, error } = await supabaseClient
+    .from("facility_types")
+    .update({ name })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// -------------------------------------------------
+// حذف نوع منشأة (روابطه مع البنود تنحذف تلقائيًا)
+// حذف البنود المرتبطة به وحده يتم قبل استدعاء هذي الدالة، من واجهة المشرف
+// -------------------------------------------------
+async function deleteFacilityType(id) {
+  const { error } = await supabaseClient.from("facility_types").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// -------------------------------------------------
+// تفعيل/إيقاف "عرض جميع البنود للمفتش دون تصفية" لقسم معيّن
+// -------------------------------------------------
+async function updateCategoryShowAll(id, show_all_items) {
+  const { error } = await supabaseClient
+    .from("categories")
+    .update({ show_all_items })
+    .eq("id", id);
+  if (error) throw error;
+}

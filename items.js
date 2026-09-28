@@ -9,12 +9,22 @@
 // ترجع كل بند مع اسم قائمته وقسمه (لعرض السياق بنتائج البحث)
 // -------------------------------------------------
 async function searchItems(query) {
-  const { data, error } = await supabaseClient
+  // مع أسماء أنواع المنشآت لعرضها كوسم بجانب النتيجة (مع رجوع للاستعلام العادي لو الجدول غير موجود)
+  let { data, error } = await supabaseClient
     .from("items")
-    .select("*, list:lists(name, category:categories(name))")
+    .select("*, list:lists(name, category:categories(name)), item_facility_types(facility_types(name))")
     .ilike("name", `%${query}%`)
     .order("name", { ascending: true })
     .limit(30);
+
+  if (error) {
+    ({ data, error } = await supabaseClient
+      .from("items")
+      .select("*, list:lists(name, category:categories(name))")
+      .ilike("name", `%${query}%`)
+      .order("name", { ascending: true })
+      .limit(30));
+  }
   if (error) throw error;
   return data;
 }
@@ -36,12 +46,23 @@ async function fetchItemById(id) {
 // جلب كل بنود قائمة معيّنة، مرتبة حسب sort_order
 // -------------------------------------------------
 async function fetchItems(listId) {
-  const { data, error } = await supabaseClient
+  // نجلب مع كل بند أنواع المنشآت المرتبط بها (item_facility_types)
+  // لو جدول الأنواع غير موجود بعد (لم يُشغَّل سكربت SQL)، نرجع للاستعلام العادي بدونها
+  let { data, error } = await supabaseClient
     .from("items")
-    .select("*")
+    .select("*, item_facility_types(facility_type_id)")
     .eq("list_id", listId)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
+
+  if (error) {
+    ({ data, error } = await supabaseClient
+      .from("items")
+      .select("*")
+      .eq("list_id", listId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }));
+  }
   if (error) throw error;
   return data;
 }
@@ -80,5 +101,54 @@ async function updateItem(id, { name, is_suspended }) {
 // -------------------------------------------------
 async function deleteItem(id) {
   const { error } = await supabaseClient.from("items").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ==================================================================
+// ربط البنود بأنواع المنشآت
+// ==================================================================
+
+// -------------------------------------------------
+// تحديد أنواع المنشآت لبند (استبدال الربط الحالي بالقائمة الجديدة)
+// typeIds فاضية = البند مشترك للكل
+// نضيف الجديد أولًا ثم نحذف اللي لم يعد مختارًا، عشان لو صار خطأ بالنص
+// ما يفقد البند ارتباطاته (أسوأ حالة: يظهر بأنواع زائدة، مو يختفي)
+// -------------------------------------------------
+async function setItemFacilityTypes(itemId, typeIds) {
+  if (typeIds.length > 0) {
+    const rows = typeIds.map((id) => ({ item_id: itemId, facility_type_id: id }));
+    const { error: upsertError } = await supabaseClient
+      .from("item_facility_types")
+      .upsert(rows, { onConflict: "item_id,facility_type_id", ignoreDuplicates: true });
+    if (upsertError) throw upsertError;
+  }
+
+  let deleteQuery = supabaseClient.from("item_facility_types").delete().eq("item_id", itemId);
+  if (typeIds.length > 0) {
+    deleteQuery = deleteQuery.not("facility_type_id", "in", `(${typeIds.join(",")})`);
+  }
+  const { error: deleteError } = await deleteQuery;
+  if (deleteError) throw deleteError;
+}
+
+// -------------------------------------------------
+// جلب كل بنود مجموعة قوائم مع أنواعها (يُستخدم عند حذف نوع منشأة لمعرفة أثره)
+// -------------------------------------------------
+async function fetchItemsForLists(listIds) {
+  if (listIds.length === 0) return [];
+  const { data, error } = await supabaseClient
+    .from("items")
+    .select("id, name, list_id, item_facility_types(facility_type_id)")
+    .in("list_id", listIds);
+  if (error) throw error;
+  return data;
+}
+
+// -------------------------------------------------
+// حذف مجموعة بنود دفعة وحدة (حالاتها وروابطها تنحذف تلقائيًا بقاعدة البيانات)
+// -------------------------------------------------
+async function deleteItemsByIds(ids) {
+  if (ids.length === 0) return;
+  const { error } = await supabaseClient.from("items").delete().in("id", ids);
   if (error) throw error;
 }

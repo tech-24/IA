@@ -54,6 +54,19 @@
     <div class="breadcrumb" id="categoryBreadcrumb">جارٍ التحميل...</div>
     <h2 id="categoryTitle"></h2>
 
+    <!-- أدوات القسم: إدارة أنواع المنشآت + مفتاح عرض جميع البنود للمفتش (تظهر فقط لو جدول الأنواع جاهز) -->
+    <div class="category-tools" id="categoryTools" style="display:none">
+      <div class="tools-row">
+        <button class="secondary" id="manageTypesBtn">أنواع المنشآت</button>
+        <label class="ios-toggle on-light">
+          <span class="toggle-label">عرض جميع البنود للمفتش دون تصفية</span>
+          <input type="checkbox" id="showAllToggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="tools-hint">مفعّل: يشاهد المفتش كل بنود القسم. مغلق: يشاهد البنود المشتركة فقط، ويختار نوع المنشأة لعرض بقية بنودها.</div>
+    </div>
+
     <!-- ==================== شريط تبويبات القوائم ====================
          السحب باللمس (سوايب) يمين/يسار يشتغل تلقائيًا عبر overflow-x
          والضغط المباشر على أي تبويب ينقل له فورًا ===================== -->
@@ -97,6 +110,13 @@
         <label for="itemName">اسم البند</label>
         <textarea id="itemName" style="min-height:60px"></textarea>
       </div>
+      <!-- تحديد المنشأة: يظهر فقط لو للقسم أنواع منشآت. بدون اختيار = مشترك للكل -->
+      <div class="field" id="itemFacilityField" style="display:none">
+        <label>المنشأة</label>
+        <button type="button" class="secondary" id="itemFacilityBtn" style="align-self:flex-start">تحديد المنشأة</button>
+        <div class="facility-picker-summary" id="itemFacilitySummary">مشترك للكل</div>
+        <div id="itemFacilityList" style="display:none"></div>
+      </div>
       <!-- خيار إيقاف البند مؤقتًا حسب التوجيه — يظل ظاهرًا للمفتش لكن بشكل مختلف (رمادي مشطوب) -->
       <div class="field">
         <label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer">
@@ -111,6 +131,23 @@
       </div>
       <div class="center" style="margin-top:10px">
         <button class="link-btn" id="deleteItemBtn" style="display:none;color:#b91c1c">حذف هذا البند</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== نافذة إدارة أنواع المنشآت ==================== -->
+  <div class="modal-overlay" id="typesModal" style="display:none">
+    <div class="modal-box">
+      <h3>أنواع المنشآت</h3>
+      <div id="typesList"></div>
+      <div class="field" style="margin-top:14px">
+        <label for="newTypeName">إضافة نوع جديد</label>
+        <input type="text" id="newTypeName" />
+      </div>
+      <div class="error" id="typesModalError"></div>
+      <div class="modal-actions">
+        <button id="addTypeBtn">إضافة</button>
+        <button class="secondary" id="closeTypesBtn">إغلاق</button>
       </div>
     </div>
   </div>
@@ -136,6 +173,15 @@
     let editingListId = null;   // القائمة اللي يتم تعديلها بالنافذة المنبثقة
     let editingItemId = null;   // البند اللي يتم تعديله بالنافذة المنبثقة
     let itemsCacheByList = {};  // { listId: [items] } — بنود كل قائمة تُجلب مرة وحدة وتُخزّن هنا
+    let allTypes = [];          // أنواع منشآت هذا القسم (حلاق، مغسلة...)
+    let typesAvailable = false; // هل جدول الأنواع جاهز بقاعدة البيانات؟
+    let selectedTypeIds = [];   // أنواع المنشآت المحددة للبند الجاري تعديله بالنافذة
+
+    // اسم نوع المنشأة من معرّفه
+    function typeNameById(id) {
+      const t = allTypes.find((x) => x.id === id);
+      return t ? t.name : null;
+    }
 
     const listsTabs = document.getElementById("listsTabs");
     const listPanelHeader = document.getElementById("listPanelHeader");
@@ -213,7 +259,15 @@
       items.forEach((item) => {
         const row = document.createElement("div");
         row.className = "item-row" + (item.is_suspended ? " item-suspended" : "");
-        row.innerHTML = `<span class="item-name">${escapeHtml(item.name)}</span>`;
+        // وسوم أنواع المنشآت المرتبط بها البند (لا شيء = مشترك للكل)
+        const badges = (item.item_facility_types || [])
+          .map((t) => typeNameById(t.facility_type_id))
+          .filter(Boolean)
+          .map((n) => `<span class="facility-badge">${escapeHtml(n)}</span>`)
+          .join("");
+        row.innerHTML = `<div class="item-main"><span class="item-name">${escapeHtml(item.name)}</span>${
+          badges ? `<div class="facility-badges">${badges}</div>` : ""
+        }</div>`;
 
         const editBtn = document.createElement("button");
         editBtn.className = "secondary";
@@ -346,6 +400,7 @@
       document.getElementById("itemSuspended").checked = false;
       itemModalError.textContent = "";
       deleteItemBtn.style.display = "none";
+      setupFacilityPicker([]);
       itemModal.style.display = "flex";
     }
 
@@ -356,8 +411,59 @@
       document.getElementById("itemSuspended").checked = !!item.is_suspended;
       itemModalError.textContent = "";
       deleteItemBtn.style.display = "inline-block";
+      setupFacilityPicker((item.item_facility_types || []).map((t) => t.facility_type_id));
       itemModal.style.display = "flex";
     }
+
+    // -------------------------------------------------
+    // اختيار المنشأة داخل نافذة البند (يظهر فقط لو للقسم أنواع منشآت)
+    // -------------------------------------------------
+    function facilityFieldActive() {
+      return typesAvailable && allTypes.length > 0;
+    }
+
+    function setupFacilityPicker(initialIds) {
+      selectedTypeIds = [...initialIds];
+      document.getElementById("itemFacilityField").style.display = facilityFieldActive() ? "flex" : "none";
+      document.getElementById("itemFacilityList").style.display = "none";
+      renderFacilityPicker();
+      updateFacilitySummary();
+    }
+
+    function renderFacilityPicker() {
+      const box = document.getElementById("itemFacilityList");
+      box.innerHTML = "";
+      allTypes.forEach((t) => {
+        const label = document.createElement("label");
+        label.className = "facility-check";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = selectedTypeIds.includes(t.id);
+        cb.addEventListener("change", () => {
+          if (cb.checked) {
+            if (!selectedTypeIds.includes(t.id)) selectedTypeIds.push(t.id);
+          } else {
+            selectedTypeIds = selectedTypeIds.filter((id) => id !== t.id);
+          }
+          updateFacilitySummary();
+        });
+        const span = document.createElement("span");
+        span.textContent = t.name;
+        label.appendChild(cb);
+        label.appendChild(span);
+        box.appendChild(label);
+      });
+    }
+
+    function updateFacilitySummary() {
+      const names = selectedTypeIds.map(typeNameById).filter(Boolean);
+      document.getElementById("itemFacilitySummary").textContent = names.length ? names.join("، ") : "مشترك للكل";
+    }
+
+    document.getElementById("itemFacilityBtn").addEventListener("click", () => {
+      const box = document.getElementById("itemFacilityList");
+      box.style.display = box.style.display === "none" ? "block" : "none";
+    });
 
     document.getElementById("cancelItemBtn").addEventListener("click", () => {
       itemModal.style.display = "none";
@@ -374,14 +480,36 @@
       const is_suspended = document.getElementById("itemSuspended").checked;
       try {
         const items = itemsCacheByList[activeListId];
+        let saved;
         if (editingItemId) {
-          const updated = await updateItem(editingItemId, { name, is_suspended });
           const index = items.findIndex((i) => i.id === editingItemId);
-          if (index !== -1) items[index] = updated;
+          const previous = index !== -1 ? items[index] : null;
+          saved = await updateItem(editingItemId, { name, is_suspended });
+          // الرد ما يحتوي الأنواع، فنحتفظ بالقديمة (تتحدّث تحت لو المشرف حدّدها)
+          saved.item_facility_types = previous ? previous.item_facility_types || [] : [];
+          if (index !== -1) items[index] = saved;
         } else {
-          const created = await addItem({ list_id: activeListId, name, is_suspended });
-          items.push(created);
+          saved = await addItem({ list_id: activeListId, name, is_suspended });
+          saved.item_facility_types = [];
+          items.push(saved);
         }
+
+        // حفظ أنواع المنشآت (فقط لو حقل الاختيار ظاهر)
+        if (facilityFieldActive()) {
+          try {
+            await setItemFacilityTypes(saved.id, selectedTypeIds);
+            saved.item_facility_types = selectedTypeIds.map((id) => ({ facility_type_id: id }));
+          } catch (tagError) {
+            // البند انحفظ لكن الأنواع لا — نبقي النافذة مفتوحة بوضع التعديل عشان إعادة المحاولة ما تكرر البند
+            editingItemId = saved.id;
+            itemModalTitle.textContent = "تعديل البند";
+            deleteItemBtn.style.display = "inline-block";
+            itemModalError.textContent = "تم حفظ البند، لكن تعذّر حفظ المنشأة: " + (tagError.message || "");
+            renderListPanel();
+            return;
+          }
+        }
+
         itemModal.style.display = "none";
         renderListPanel(); // رسم فوري من الذاكرة، بدون اتصال إضافي بالخادم
       } catch (e) {
@@ -404,6 +532,163 @@
     });
 
     // ==================================================================
+    // إدارة أنواع المنشآت (إضافة / تعديل / حذف)
+    // ==================================================================
+    const typesModal = document.getElementById("typesModal");
+    const typesModalError = document.getElementById("typesModalError");
+
+    function renderTypesList() {
+      const box = document.getElementById("typesList");
+      box.innerHTML = "";
+      if (allTypes.length === 0) {
+        box.innerHTML = '<div class="empty-hint">لا توجد أنواع منشآت بعد.</div>';
+        return;
+      }
+      allTypes.forEach((t) => {
+        const row = document.createElement("div");
+        row.className = "type-row";
+
+        const name = document.createElement("span");
+        name.className = "type-name";
+        name.textContent = t.name;
+
+        const actions = document.createElement("div");
+        actions.className = "type-actions";
+
+        const editBtn = document.createElement("button");
+        editBtn.className = "secondary";
+        editBtn.textContent = "تعديل";
+        editBtn.addEventListener("click", () => renameType(t));
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "danger";
+        delBtn.textContent = "حذف";
+        delBtn.addEventListener("click", () => deleteTypeFlow(t));
+
+        actions.appendChild(editBtn);
+        actions.appendChild(delBtn);
+        row.appendChild(name);
+        row.appendChild(actions);
+        box.appendChild(row);
+      });
+    }
+
+    async function renameType(type) {
+      typesModalError.textContent = "";
+      const input = prompt("اسم نوع المنشأة:", type.name);
+      if (input === null) return;
+      const newName = input.trim();
+      if (!newName || newName === type.name) return;
+      try {
+        const updated = await updateFacilityType(type.id, { name: newName });
+        const index = allTypes.findIndex((x) => x.id === type.id);
+        if (index !== -1) allTypes[index] = updated;
+        renderTypesList();
+        renderListPanel(); // تحديث أسماء الوسوم بالبنود
+      } catch (e) {
+        typesModalError.textContent = e.message || "تعذر تعديل الاسم";
+      }
+    }
+
+    // -------------------------------------------------
+    // حذف نوع منشأة:
+    // - البنود المشتركة مع أنواع أخرى: تُزال علاقتها بهذا النوع فقط وتبقى
+    // - البنود المرتبطة بهذا النوع وحده: تُحذف معه (بحالاتها وصورها)
+    // مع رسالة توضح العدد، وتأكيد بكتابة كلمة "حذف"
+    // -------------------------------------------------
+    async function deleteTypeFlow(type) {
+      typesModalError.textContent = "";
+      try {
+        const items = await fetchItemsForLists(allLists.map((l) => l.id));
+        const tagsOf = (i) => (i.item_facility_types || []).map((t) => t.facility_type_id);
+        const exclusive = items.filter((i) => {
+          const tags = tagsOf(i);
+          return tags.length === 1 && tags[0] === type.id;
+        });
+        const shared = items.filter((i) => {
+          const tags = tagsOf(i);
+          return tags.includes(type.id) && tags.length > 1;
+        });
+        const casesCount = await countCasesForItems(exclusive.map((i) => i.id));
+
+        let message = `سيتم حذف نوع المنشأة "${type.name}" نهائيًا.`;
+        if (exclusive.length > 0) {
+          message += `\nسيتم حذف ${exclusive.length} بند مرتبط به وحده، وفيها ${casesCount} حالة بصورها.`;
+        }
+        if (shared.length > 0) {
+          message += `\nسيبقى ${shared.length} بند مشترك مع أنواع أخرى، وتُزال علاقته بهذا النوع فقط.`;
+        }
+        if (exclusive.length === 0 && shared.length === 0) {
+          message += "\nلا توجد بنود مرتبطة به.";
+        }
+        const typed = prompt(message + '\nللتأكيد، اكتب كلمة "حذف" بالضبط:');
+        if (typed !== "حذف") return;
+
+        // نحذف البنود المنفردة أولًا (مع تنظيف صور حالاتها من التخزين)، ثم النوع نفسه
+        // هذا الترتيب مقصود: لو فشل حذف النوع، ما تتحول بنود منفردة إلى مشتركة بالخطأ
+        for (const item of exclusive) {
+          await deleteAllCaseImagesForItem(item.id);
+        }
+        await deleteItemsByIds(exclusive.map((i) => i.id));
+        await deleteFacilityType(type.id);
+
+        allTypes = allTypes.filter((t) => t.id !== type.id);
+        itemsCacheByList = {}; // بنود انحذفت وعلاقات تغيّرت، فنعيد الجلب عند الحاجة
+        renderTypesList();
+        await showListPanel();
+      } catch (e) {
+        typesModalError.textContent = e.message || "تعذر حذف النوع";
+      }
+    }
+
+    document.getElementById("manageTypesBtn").addEventListener("click", () => {
+      typesModalError.textContent = "";
+      document.getElementById("newTypeName").value = "";
+      renderTypesList();
+      typesModal.style.display = "flex";
+    });
+
+    document.getElementById("closeTypesBtn").addEventListener("click", () => {
+      typesModal.style.display = "none";
+    });
+
+    document.getElementById("addTypeBtn").addEventListener("click", async () => {
+      const name = document.getElementById("newTypeName").value.trim();
+      if (!name) {
+        typesModalError.textContent = "اكتب اسم نوع المنشأة";
+        return;
+      }
+      const btn = document.getElementById("addTypeBtn");
+      btn.disabled = true; // يمنع تكرار الضغط
+      typesModalError.textContent = "";
+      try {
+        const created = await addFacilityType({ category_id: categoryId, name });
+        allTypes.push(created);
+        document.getElementById("newTypeName").value = "";
+        renderTypesList();
+      } catch (e) {
+        typesModalError.textContent = e.message || "تعذر إضافة النوع";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // مفتاح "عرض جميع البنود للمفتش دون تصفية" (لكل قسم)
+    document.getElementById("showAllToggle").addEventListener("change", async (e) => {
+      const toggle = e.target;
+      const wanted = toggle.checked;
+      toggle.disabled = true;
+      try {
+        await updateCategoryShowAll(categoryId, wanted);
+      } catch (err) {
+        toggle.checked = !wanted; // نرجّعه لحالته السابقة لو فشل الحفظ
+        alert("تعذر حفظ الإعداد: " + (err.message || ""));
+      } finally {
+        toggle.disabled = false;
+      }
+    });
+
+    // ==================================================================
     // تشغيل الصفحة: التحقق من صلاحية المشرف، ثم تحميل اسم القسم والقوائم
     // ==================================================================
     (async () => {
@@ -417,6 +702,17 @@
       const category = await fetchCategoryById(categoryId);
       document.getElementById("categoryBreadcrumb").textContent = "الأقسام";
       document.getElementById("categoryTitle").textContent = category.name;
+
+      // أنواع المنشآت وإعداد العرض: لو الجدول غير جاهز بعد (لم يُشغَّل سكربت SQL) نخفي أدواتها
+      try {
+        allTypes = await fetchFacilityTypes(categoryId);
+        typesAvailable = true;
+        document.getElementById("showAllToggle").checked = category.show_all_items !== false;
+        document.getElementById("categoryTools").style.display = "flex";
+      } catch (e) {
+        typesAvailable = false;
+        allTypes = [];
+      }
 
       document.getElementById("backAdminBtn").addEventListener("click", () => {
         window.history.back();

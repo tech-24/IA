@@ -162,10 +162,18 @@
         const categoryName = item.list && item.list.category ? item.list.category.name : "";
         const listName = item.list ? item.list.name : "";
 
+        // وسوم أنواع المنشآت المرتبط بها البند (لا شيء = مشترك للكل)
+        const typeBadges = (item.item_facility_types || [])
+          .map((t) => (t.facility_types ? t.facility_types.name : null))
+          .filter(Boolean)
+          .map((n) => `<span class="facility-badge">${escapeHtml(n)}</span>`)
+          .join("");
+
         row.innerHTML = `
-          <div>
+          <div class="item-main">
             <div class="item-name">${escapeHtml(item.name)}</div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${escapeHtml(categoryName)} › ${escapeHtml(listName)}</div>
+            ${typeBadges ? `<div class="facility-badges">${typeBadges}</div>` : ""}
           </div>
         `;
         row.addEventListener("click", () => {

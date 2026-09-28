@@ -53,11 +53,12 @@ async function fetchCases(itemId) {
 
 // -------------------------------------------------
 // إضافة حالة جديدة (بدون صور بعد — الصور تُضاف بعد إنشاء الحالة)
+// note: ملاحظة يكتبها المشرف فقط، تظهر تحت الصور بواجهة المفتش
 // -------------------------------------------------
-async function addCase({ item_id, name, monitoring_method }) {
+async function addCase({ item_id, name, monitoring_method, note }) {
   const { data, error } = await supabaseClient
     .from("cases")
-    .insert({ item_id, name, monitoring_method })
+    .insert({ item_id, name, monitoring_method, note })
     .select("*, case_images(*)")
     .single();
   if (error) throw error;
@@ -65,12 +66,12 @@ async function addCase({ item_id, name, monitoring_method }) {
 }
 
 // -------------------------------------------------
-// تعديل بيانات حالة موجودة (الاسم وشرح طريقة الرصد)
+// تعديل بيانات حالة موجودة (الاسم وشرح طريقة الرصد والملاحظة)
 // -------------------------------------------------
-async function updateCase(id, { name, monitoring_method }) {
+async function updateCase(id, { name, monitoring_method, note }) {
   const { data, error } = await supabaseClient
     .from("cases")
-    .update({ name, monitoring_method })
+    .update({ name, monitoring_method, note })
     .eq("id", id)
     .select("*, case_images(*)")
     .single();
@@ -119,4 +120,17 @@ async function addCaseImage({ case_id, file, sort_order }) {
 async function deleteCaseImage(id) {
   const { error } = await supabaseClient.from("case_images").delete().eq("id", id);
   if (error) throw error;
+}
+
+// -------------------------------------------------
+// عدد كل الحالات التابعة لمجموعة بنود (يُستخدم برسالة تأكيد حذف نوع منشأة)
+// -------------------------------------------------
+async function countCasesForItems(itemIds) {
+  if (itemIds.length === 0) return 0;
+  const { count, error } = await supabaseClient
+    .from("cases")
+    .select("id", { count: "exact", head: true })
+    .in("item_id", itemIds);
+  if (error) throw error;
+  return count || 0;
 }

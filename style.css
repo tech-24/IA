@@ -726,3 +726,94 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   line-height: 1;
 }
 .icon-back-btn:hover { background: none; box-shadow: none; opacity: 0.75; }
+
+/* ================================================================
+   أنواع المنشآت (حلاق، مغسلة...)
+   ================================================================ */
+
+/* صف أدوات القسم بلوحة المشرف (زر الأنواع + مفتاح عرض جميع البنود) */
+.category-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.category-tools .tools-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.category-tools .tools-hint { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+/* نسخة المفتاح بخلفية فاتحة (النسخة الأصلية مصممة للشريط الأزرق) */
+.ios-toggle.on-light { color: var(--text); font-size: 14px; }
+.ios-toggle.on-light .toggle-slider { background: #cbd5e1; }
+.ios-toggle.on-light input:checked + .toggle-slider { background: #34c759; }
+
+/* وسم نوع المنشأة بجانب البند */
+.item-row .item-main { flex: 1; min-width: 0; }
+.facility-badges { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+.facility-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+/* صف نوع منشأة بنافذة إدارة الأنواع */
+.type-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.type-row .type-name { font-weight: 600; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+.type-row .type-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.type-row .type-actions button { padding: 5px 12px; font-size: 12px; }
+.type-row .type-actions button.danger { background: var(--danger-bg); color: #b91c1c; }
+
+/* اختيار المنشآت داخل نموذج البند */
+.facility-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.facility-check input { width: 18px; height: 18px; }
+.facility-picker-summary { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+
+/* صف اسم القسم + القائمة المنسدلة لنوع المنشأة بواجهة المفتش */
+.category-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.category-heading-row h2 { margin: 0; }
+.facility-select {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary-dark);
+  background: var(--primary-light);
+  border: 1px solid #b9cfe6;
+  border-radius: 999px;
+  padding: 8px 14px;
+  max-width: 100%;
+}
+.facility-select:focus { outline: none; box-shadow: 0 0 0 3px rgba(51, 121, 189, 0.15); }

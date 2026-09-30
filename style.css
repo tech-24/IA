@@ -897,3 +897,38 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   font-size: 12px;
   flex-shrink: 0;
 }
+
+/* ================================================================
+   نافذة تكبير الصورة (Lightbox) — صفحة المفتش
+   ================================================================ */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 14, 22, 0.92);
+  z-index: 80;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.lightbox-overlay img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.lightbox-close {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  color: #fff;
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.lightbox-close:hover { background: rgba(255, 255, 255, 0.22); box-shadow: none; }

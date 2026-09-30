@@ -887,3 +887,13 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   justify-content: center;
 }
 .facility-chip button:hover { background: rgba(39, 95, 148, 0.28); box-shadow: none; }
+
+/* زر نسخ الملاحظة بصفحة المفتش */
+.copy-note-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  flex-shrink: 0;
+}

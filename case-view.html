@@ -70,10 +70,15 @@
       <div class="case-images-row" id="caseDetailImages"></div>
 
       <div id="caseDetailNoteWrap" style="display:none;margin-top:10px">
-        <label style="font-size:13px;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px">
-          ملاحظة
-        </label>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <label style="font-size:13px;color:var(--text-muted);font-weight:600">ملاحظة</label>
+          <button type="button" id="copyNoteBtn" class="secondary copy-note-btn">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            نسخ
+          </button>
+        </div>
         <p id="caseDetailNote" style="font-size:14px;line-height:1.8;white-space:pre-wrap"></p>
+        <span id="copyNoteConfirm" style="display:none;font-size:12px;color:#16a34a;font-weight:600">تم النسخ</span>
       </div>
 
       <div style="margin-top:10px">
@@ -173,6 +178,34 @@
 
     document.getElementById("closeCaseDetailBtn").addEventListener("click", () => {
       caseDetailModal.style.display = "none";
+    });
+
+    // -------------------------------------------------
+    // نسخ نص الملاحظة، مع رسالة "تم النسخ" مؤقتة
+    // -------------------------------------------------
+    let copyConfirmTimer = null;
+    document.getElementById("copyNoteBtn").addEventListener("click", async () => {
+      const text = document.getElementById("caseDetailNote").textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        // بعض المتصفحات القديمة أو بدون HTTPS ما تدعم الحافظة — نستخدم طريقة بديلة
+        const helper = document.createElement("textarea");
+        helper.value = text;
+        helper.style.position = "fixed";
+        helper.style.opacity = "0";
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand("copy");
+        document.body.removeChild(helper);
+      }
+
+      const confirmEl = document.getElementById("copyNoteConfirm");
+      confirmEl.style.display = "inline";
+      clearTimeout(copyConfirmTimer);
+      copyConfirmTimer = setTimeout(() => {
+        confirmEl.style.display = "none";
+      }, 1800);
     });
 
     // ==================================================================

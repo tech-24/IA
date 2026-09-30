@@ -90,7 +90,7 @@
     // تصفية البنود حسب نوع المنشأة
     let facilityTypes = [];          // أنواع منشآت هذا القسم
     let filterActive = false;        // هل التصفية مفعّلة لهذا القسم؟
-    let selectedFacilityId = "";     // "" = البنود المشتركة فقط
+    let selectedFacilityId = "";     // "" = جميع البنود (بدون تصفية)
     const FACILITY_KEY = "facility_choice_" + categoryId; // يُحفظ الاختيار خلال الجلسة
 
     const listsTabs = document.getElementById("listsTabs");
@@ -121,9 +121,9 @@
     // - بند مرتبط بأنواع = يظهر فقط لو نوعه (أحد أنواعه) هو المختار
     // -------------------------------------------------
     function isItemVisible(item) {
+      if (selectedFacilityId === "") return true; // "جميع البنود": بدون أي تصفية
       const tags = (item.item_facility_types || []).map((t) => t.facility_type_id);
-      if (tags.length === 0) return true;
-      return selectedFacilityId !== "" && tags.includes(selectedFacilityId);
+      return tags.length === 0 || tags.includes(selectedFacilityId);
     }
 
     function setupFacilitySelect() {
@@ -132,7 +132,7 @@
 
       const commonOption = document.createElement("option");
       commonOption.value = "";
-      commonOption.textContent = "البنود المشتركة";
+      commonOption.textContent = "جميع البنود";
       select.appendChild(commonOption);
 
       facilityTypes.forEach((t) => {

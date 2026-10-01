@@ -72,10 +72,10 @@ async function getCurrentProfile() {
     }
   }
 
-  // الخطوة 3: نجيب صف هذا المستخدم من جدول profiles عشان نعرف دوره وحالة حسابه
+  // الخطوة 3: نجيب صف هذا المستخدم من جدول profiles عشان نعرف دوره وحالة حسابه واسمه
   const { data, error } = await supabaseClient
     .from("profiles")
-    .select("id, email, role, is_disabled")
+    .select("id, email, role, is_disabled, full_name")
     .eq("id", session.user.id)
     .single();
 
@@ -97,6 +97,26 @@ function showDisabledAccountScreen() {
     </div>
   `;
   document.getElementById("disabledLogoutBtn").addEventListener("click", logout);
+}
+
+// -------------------------------------------------
+// حفظ الاسم الثلاثي للمستخدم الحالي (صفحة "حسابي")
+// عن طريق دالة set_my_name فقط — ما نعدّل صف profiles مباشرة، حتى ما يقدر أحد يغيّر دوره
+// -------------------------------------------------
+async function setMyName(name) {
+  const { error } = await supabaseClient.rpc("set_my_name", { p_name: name });
+  if (error) throw error;
+  // نحدّث النسخة المخزّنة مؤقتًا عشان الاسم الجديد يبين فورًا بباقي الصفحات بدون انتظار
+  const cached = sessionStorage.getItem("inspector_profile_cache");
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      parsed.full_name = name;
+      sessionStorage.setItem("inspector_profile_cache", JSON.stringify(parsed));
+    } catch (e) {
+      // لو كانت النسخة المخزّنة تالفة، نتجاهل التحديث المؤقت — ستُجلب صحيحة بالمرة الجاية
+    }
+  }
 }
 
 // -------------------------------------------------

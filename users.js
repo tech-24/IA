@@ -11,7 +11,7 @@
 async function fetchAllProfiles() {
   const { data, error } = await supabaseClient
     .from("profiles")
-    .select("id, email, role, is_disabled, created_at")
+    .select("id, email, role, is_disabled, created_at, full_name")
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data;

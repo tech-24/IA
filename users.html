@@ -93,15 +93,24 @@
       const top = document.createElement("div");
       top.className = "user-card-top";
 
-      const email = document.createElement("div");
-      email.className = "user-email";
-      email.textContent = profile.email;
+      // الاسم الثلاثي عنوانًا للحساب (أو البريد لو ما أضافه المستخدم بعد)، والبريد دائمًا تحته
+      const nameWrap = document.createElement("div");
+      const nameEl = document.createElement("div");
+      nameEl.className = "user-email";
+      nameEl.textContent = profile.full_name || profile.email;
+      nameWrap.appendChild(nameEl);
+      if (profile.full_name) {
+        const emailSub = document.createElement("div");
+        emailSub.className = "user-email-sub";
+        emailSub.textContent = profile.email;
+        nameWrap.appendChild(emailSub);
+      }
 
       const badges = document.createElement("div");
       badges.className = "user-badges";
       badges.innerHTML = roleBadgeHtml(profile) + (profile.is_disabled ? '<span class="role-badge disabled">معطّل</span>' : "");
 
-      top.appendChild(email);
+      top.appendChild(nameWrap);
       top.appendChild(badges);
 
       const created = document.createElement("div");

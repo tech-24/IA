@@ -27,6 +27,7 @@
   <button id="closeDrawerBtn" class="close-drawer-btn" aria-label="إغلاق">✕</button>
   <a href="admin.html"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"></path><path d="M5 10v10h14V10"></path></svg></span> الصفحة الرئيسية</a>
   <button class="drawer-link" id="syncBtn"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span> مزامنة</button>
+  <a href="account.html"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span> حسابي</a>
   <a href="users.html" id="usersManageLink" style="display:none"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span> إدارة المستخدمين</a>
   <a href="about.html"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span> حول مساعد المفتش</a>
   <button class="drawer-link logout-link" id="drawerLogoutBtn"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></span> تسجيل الخروج</button>
@@ -61,11 +62,12 @@
         <input type="text" id="toolName" />
       </div>
 
-      <div class="field">
+      <div class="field" id="urlTypeField">
         <label>نوع الرابط</label>
         <div class="image-type-toggle">
           <button type="button" id="linkTypeBtn" class="active">رابط خارجي</button>
           <button type="button" id="fileTypeBtn">رفع ملف</button>
+          <button type="button" id="builtinTypeBtn">أداة جاهزة</button>
         </div>
       </div>
 
@@ -81,6 +83,22 @@
           📎 يوجد ملف مرفوع حاليًا
         </div>
         <input type="file" id="toolUrlFile" />
+      </div>
+
+      <div class="field" id="toolBuiltinField" style="display:none">
+        <label for="toolBuiltinSelect">اختر الأداة الجاهزة</label>
+        <select id="toolBuiltinSelect">
+          <option value="visits">تسجيل الزيارات</option>
+        </select>
+      </div>
+
+      <!-- إخفاء الأداة عن المفتشين — يظهر فقط لأدوات تسجيل الزيارات (عند التعديل) -->
+      <div class="field" id="toolHiddenField" style="display:none">
+        <label class="ios-toggle on-light">
+          <span class="toggle-label">إخفاء هذه الأداة عن المفتشين</span>
+          <input type="checkbox" id="toolHiddenToggle" />
+          <span class="toggle-slider"></span>
+        </label>
       </div>
 
       <div class="field">
@@ -111,6 +129,7 @@
   <script src="auth.js"></script>
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
+  <script src="visits.js"></script>
   <script>
     let allTools = [];
     let editingToolId = null;
@@ -121,16 +140,23 @@
       toolsGrid.innerHTML = "";
 
       allTools.forEach((tool) => {
+        const visitTool = isVisitTool(tool);
+
         const card = document.createElement("div");
-        card.className = "category-card";
+        card.className = "category-card" + (tool.is_hidden ? " tool-hidden" : "");
         card.style.cursor = "pointer";
-        card.addEventListener("click", () => openEditToolModal(tool));
+        // أداة الزيارات: الضغط على البطاقة يفتحها فعليًا (تسجيل/عرض الزيارات)
+        // أي أداة ثانية (رابط/ملف): الضغط يفتح نافذة التعديل كما كان
+        card.addEventListener("click", () => {
+          if (visitTool) window.location.href = `visits.html?tool_id=${tool.id}`;
+          else openEditToolModal(tool);
+        });
 
         const visual = document.createElement("div");
         visual.className = "category-visual";
         visual.innerHTML = tool.image_value
           ? `<img src="${escapeHtml(tool.image_value)}" alt="${escapeHtml(tool.name)}" style="object-fit:contain;padding:10px;box-sizing:border-box" />`
-          : `<span class="icon-text">🔗</span>`;
+          : `<span class="icon-text">${visitTool ? "📋" : "🔗"}</span>`;
 
         const name = document.createElement("div");
         name.className = "category-name";
@@ -138,6 +164,26 @@
 
         card.appendChild(visual);
         card.appendChild(name);
+
+        if (tool.is_hidden) {
+          const badge = document.createElement("div");
+          badge.className = "tool-hidden-badge";
+          badge.textContent = "مخفية";
+          card.appendChild(badge);
+        }
+
+        // زر تعديل منفصل لأداة الزيارات فقط (لأن الضغط على بطاقتها يفتحها، مو يعدّلها)
+        if (visitTool) {
+          const editBtn = document.createElement("button");
+          editBtn.className = "secondary tool-edit-btn";
+          editBtn.textContent = "تعديل";
+          editBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openEditToolModal(tool);
+          });
+          card.appendChild(editBtn);
+        }
+
         toolsGrid.appendChild(card);
       });
 
@@ -162,19 +208,24 @@
     const deleteToolBtn = document.getElementById("deleteToolBtn");
     const linkTypeBtn = document.getElementById("linkTypeBtn");
     const fileTypeBtn = document.getElementById("fileTypeBtn");
+    const builtinTypeBtn = document.getElementById("builtinTypeBtn");
     const toolUrlField = document.getElementById("toolUrlField");
     const toolFileField = document.getElementById("toolFileField");
-    let currentUrlType = "link"; // "link" أو "file" — أي وضع مفعّل حاليًا بالنافذة
+    const toolBuiltinField = document.getElementById("toolBuiltinField");
+    let currentUrlType = "link"; // "link" أو "file" أو "builtin" — أي وضع مفعّل حاليًا بالنافذة
 
     function setUrlType(type) {
       currentUrlType = type;
       linkTypeBtn.classList.toggle("active", type === "link");
       fileTypeBtn.classList.toggle("active", type === "file");
+      builtinTypeBtn.classList.toggle("active", type === "builtin");
       toolUrlField.style.display = type === "link" ? "block" : "none";
       toolFileField.style.display = type === "file" ? "block" : "none";
+      toolBuiltinField.style.display = type === "builtin" ? "block" : "none";
     }
     linkTypeBtn.addEventListener("click", () => setUrlType("link"));
     fileTypeBtn.addEventListener("click", () => setUrlType("file"));
+    builtinTypeBtn.addEventListener("click", () => setUrlType("builtin"));
 
     function openAddToolModal() {
       editingToolId = null;
@@ -185,8 +236,11 @@
       document.getElementById("toolFile").value = "";
       document.getElementById("currentToolImagePreviewWrap").style.display = "none";
       document.getElementById("currentToolFileWrap").style.display = "none";
+      document.getElementById("urlTypeField").style.display = "flex";
+      document.getElementById("toolHiddenField").style.display = "none";
       toolModalError.textContent = "";
       deleteToolBtn.style.display = "none";
+      deleteToolBtn.disabled = false;
       setUrlType("link");
       toolModal.style.display = "flex";
     }
@@ -198,19 +252,31 @@
       document.getElementById("toolUrlFile").value = "";
       document.getElementById("toolFile").value = "";
 
-      // نميّز هل الرابط الحالي ملف مرفوع عندنا، أو رابط خارجي عادي
-      const isStoredFile = tool.url && tool.url.includes(SUPABASE_URL);
-      const currentFileWrap = document.getElementById("currentToolFileWrap");
-      if (isStoredFile) {
-        // ملف مرفوع: نخلي الوضع "ملف" ونعرض إشعار بدل الرابط الطويل المربك
-        document.getElementById("toolUrl").value = "";
-        currentFileWrap.style.display = "block";
-        setUrlType("file");
+      if (isVisitTool(tool)) {
+        // أداة زيارات: نوعها ثابت (ما نعرض خيارات رابط/ملف إطلاقًا)، ونعرض مفتاح الإخفاء
+        document.getElementById("urlTypeField").style.display = "none";
+        document.getElementById("currentToolFileWrap").style.display = "none";
+        setUrlType("builtin");
+        document.getElementById("toolHiddenField").style.display = "flex";
+        document.getElementById("toolHiddenToggle").checked = !!tool.is_hidden;
       } else {
-        // رابط خارجي عادي: نعرضه كما هو بوضع "رابط"
-        document.getElementById("toolUrl").value = tool.url;
-        currentFileWrap.style.display = "none";
-        setUrlType("link");
+        document.getElementById("urlTypeField").style.display = "flex";
+        document.getElementById("toolHiddenField").style.display = "none";
+
+        // نميّز هل الرابط الحالي ملف مرفوع عندنا، أو رابط خارجي عادي
+        const isStoredFile = tool.url && tool.url.includes(SUPABASE_URL);
+        const currentFileWrap = document.getElementById("currentToolFileWrap");
+        if (isStoredFile) {
+          // ملف مرفوع: نخلي الوضع "ملف" ونعرض إشعار بدل الرابط الطويل المربك
+          document.getElementById("toolUrl").value = "";
+          currentFileWrap.style.display = "block";
+          setUrlType("file");
+        } else {
+          // رابط خارجي عادي: نعرضه كما هو بوضع "رابط"
+          document.getElementById("toolUrl").value = tool.url;
+          currentFileWrap.style.display = "none";
+          setUrlType("link");
+        }
       }
 
       // نعرض معاينة الأيقونة الحالية فقط لو الأداة عندها أيقونة فعلاً
@@ -224,6 +290,7 @@
 
       toolModalError.textContent = "";
       deleteToolBtn.style.display = "inline-block";
+      deleteToolBtn.disabled = false;
       toolModal.style.display = "flex";
     }
 
@@ -236,12 +303,14 @@
       const url = document.getElementById("toolUrl").value.trim();
       const urlFile = document.getElementById("toolUrlFile").files[0];
       const file = document.getElementById("toolFile").files[0];
+      const isBuiltin = currentUrlType === "builtin";
 
-      const hasLink = currentUrlType === "link" && url;
+      const hasLink = (currentUrlType === "link" && url) || isBuiltin;
       const hasFile = currentUrlType === "file" && urlFile;
+      const effectiveUrl = isBuiltin ? VISIT_TOOL_URL : url; // الأداة الجاهزة لها رابط ثابت دائمًا
 
       if (!name || (!hasLink && !hasFile && !editingToolId)) {
-        toolModalError.textContent = "اكتب اسم الأداة، واختر رابط أو ملف";
+        toolModalError.textContent = "اكتب اسم الأداة، واختر رابط أو ملف أو أداة جاهزة";
         return;
       }
 
@@ -252,7 +321,7 @@
           const oldTool = allTools.find((t) => t.id === editingToolId);
           const updated = await updateTool(editingToolId, {
             name,
-            url: hasLink ? url : null,
+            url: hasLink ? effectiveUrl : null,
             urlFile: hasFile ? urlFile : null,
             file,
           });
@@ -260,17 +329,26 @@
           if (file && oldTool.image_value) await deleteToolStorageFile(oldTool.image_value, TOOL_BUCKET);
           // نحذف ملف الرابط القديم فعليًا بس لو الرابط تغيّر حقًا (رفع ملف جديد، أو
           // كتب رابط نصي مختلف عن القديم) — مو لمجرد إن الوضع "رابط" مفعّل بالنافذة
+          // (للأداة الجاهزة: الرابط ثابت دائمًا فلا يُعتبر تغييرًا أبدًا)
           const oldUrlWasStoredFile = oldTool.url && oldTool.url.includes(SUPABASE_URL);
-          const urlActuallyChanged = hasFile || (hasLink && url !== oldTool.url);
+          const urlActuallyChanged = hasFile || (hasLink && !isBuiltin && effectiveUrl !== oldTool.url);
           if (urlActuallyChanged && oldUrlWasStoredFile) {
             await deleteToolStorageFile(oldTool.url, TOOL_FILE_BUCKET);
           }
+
+          // إخفاء/إظهار أداة الزيارات (الحقل ما يظهر أصلاً لغير أدوات الزيارات)
+          if (isVisitTool(updated)) {
+            const hidden = document.getElementById("toolHiddenToggle").checked;
+            await updateToolHidden(editingToolId, hidden);
+            updated.is_hidden = hidden;
+          }
+
           const index = allTools.findIndex((t) => t.id === editingToolId);
           if (index !== -1) allTools[index] = updated;
         } else {
           const created = await addTool({
             name,
-            url: hasLink ? url : null,
+            url: hasLink ? effectiveUrl : null,
             urlFile: hasFile ? urlFile : null,
             file,
           });
@@ -286,15 +364,45 @@
     });
 
     deleteToolBtn.addEventListener("click", async () => {
-      const confirmed = confirm("هل أنت متأكد من حذف هذه الأداة؟");
-      if (!confirmed) return;
       const tool = allTools.find((t) => t.id === editingToolId);
-      await deleteTool(editingToolId);
-      // نحذف الأيقونة وملف الأداة (لو موجودين) فعليًا من التخزين
-      if (tool) {
+      if (!tool) return;
+
+      if (isVisitTool(tool)) {
+        // أداة زيارات: نوضح عدد الزيارات اللي بتنحذف معها، ونقترح الإخفاء أو التصدير بدلًا من الحذف
+        toolModalError.textContent = "";
+        let visitsCount = 0;
+        try {
+          visitsCount = await countVisitsForTool(tool.id);
+        } catch (e) {
+          toolModalError.textContent = "تعذر التحقق من عدد الزيارات، حاول مرة أخرى";
+          return;
+        }
+        const message =
+          `سيتم حذف أداة "${tool.name}" نهائيًا، وسيُحذف معها ${visitsCount} زيارة بصورها، ولا يمكن التراجع.\n` +
+          `إذا تبي تحتفظ بالبيانات، صدّرها أولًا أو أخفِ الأداة بدلًا من حذفها.\n` +
+          `للتأكيد، اكتب كلمة "حذف" بالضبط:`;
+        const typed = prompt(message);
+        if (typed !== "حذف") return;
+
+        deleteToolBtn.disabled = true;
+        try {
+          await deleteAllVisitPhotosForTool(tool.id); // تنظيف الصور أولًا، قبل حذف الأداة (والزيارات معها تلقائيًا)
+          await deleteTool(editingToolId);
+          if (tool.image_value) await deleteToolStorageFile(tool.image_value, TOOL_BUCKET);
+        } catch (e) {
+          toolModalError.textContent = e.message || "تعذر حذف الأداة";
+          deleteToolBtn.disabled = false;
+          return;
+        }
+      } else {
+        const confirmed = confirm("هل أنت متأكد من حذف هذه الأداة؟");
+        if (!confirmed) return;
+        await deleteTool(editingToolId);
+        // نحذف الأيقونة وملف الأداة (لو موجودين) فعليًا من التخزين
         if (tool.image_value) await deleteToolStorageFile(tool.image_value, TOOL_BUCKET);
         if (tool.url) await deleteToolStorageFile(tool.url, TOOL_FILE_BUCKET);
       }
+
       allTools = allTools.filter((t) => t.id !== editingToolId);
       toolModal.style.display = "none";
       renderTools();

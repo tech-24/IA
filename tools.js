@@ -6,6 +6,14 @@
 // اسم الـ bucket في Supabase Storage اللي تُخزّن فيه أيقونات الأدوات
 const TOOL_BUCKET = "tool-images";
 
+// رابط ثابت يميّز "أداة تسجيل الزيارات" الجاهزة عن أي رابط خارجي أو ملف عادي
+const VISIT_TOOL_URL = "app://visits";
+
+// هل هذي الأداة من نوع "تسجيل الزيارات" الجاهزة؟
+function isVisitTool(tool) {
+  return tool.url === VISIT_TOOL_URL;
+}
+
 // -------------------------------------------------
 // حذف ملف أيقونة/ملف أداة فعليًا من Supabase Storage
 // bucketConst: أي bucket نحذف منه (TOOL_BUCKET للأيقونة، أو TOOL_FILE_BUCKET للملف)
@@ -115,5 +123,13 @@ async function updateTool(id, { name, url, urlFile, file }) {
 // -------------------------------------------------
 async function deleteTool(id) {
   const { error } = await supabaseClient.from("tools").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// -------------------------------------------------
+// إخفاء/إظهار أداة عن المفتشين (تبقى ظاهرة للمشرف دائمًا)
+// -------------------------------------------------
+async function updateToolHidden(id, isHidden) {
+  const { error } = await supabaseClient.from("tools").update({ is_hidden: isHidden }).eq("id", id);
   if (error) throw error;
 }

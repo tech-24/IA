@@ -932,3 +932,62 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   cursor: pointer;
 }
 .lightbox-close:hover { background: rgba(255, 255, 255, 0.22); box-shadow: none; }
+
+/* ================================================================
+   شاشة الحساب المعطّل (تستبدل الصفحة بالكامل)
+   ================================================================ */
+.disabled-account-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 24px;
+  gap: 14px;
+}
+.disabled-account-screen h2 { margin: 0; color: #b91c1c; }
+.disabled-account-screen p { color: var(--text-muted); font-size: 15px; line-height: 1.8; max-width: 360px; margin: 0; }
+
+/* ================================================================
+   صفحة إدارة المستخدمين (مالك النظام)
+   ================================================================ */
+.user-count-line { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+
+.user-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.user-card.is-disabled { background: #f1f3f5; }
+
+.user-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.user-email { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+.user-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.role-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.role-badge.owner { background: #fde68a; color: #78350f; }
+.role-badge.admin { background: var(--primary-light); color: var(--primary-dark); }
+.role-badge.viewer { background: #f1f3f5; color: var(--text-muted); }
+.role-badge.disabled { background: var(--danger-bg); color: #b91c1c; }
+
+.user-created { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+.user-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.user-card-actions button { padding: 6px 14px; font-size: 12px; }
+.user-card-actions button.danger-text { color: #b91c1c; }
+.user-self-note { font-size: 13px; color: var(--text-muted); font-style: normal; }

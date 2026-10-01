@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <link rel="icon" href="icon.png" />
+  <meta name="apple-mobile-web-app-title" content="مساعد المفتش" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json" />
+  <title>إدارة المستخدمين</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://twbatrsenepuaylyiqsq.supabase.co" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1>إدارة المستخدمين</h1>
+    <div class="user-info">
+      <button id="backBtn" class="icon-back-btn" aria-label="رجوع">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- بحث بالبريد الإلكتروني -->
+    <div class="field">
+      <input type="text" id="userSearchInput" placeholder="ابحث بالبريد الإلكتروني..." />
+    </div>
+
+    <div class="user-count-line" id="userCountLine"></div>
+
+    <div id="usersList"></div>
+  </div>
+
+  <!-- ==================== نافذة تأكيد عامة (ترقية / إرجاع / تعطيل / تفعيل) ==================== -->
+  <div class="modal-overlay" id="confirmModal" style="display:none">
+    <div class="modal-box">
+      <h3>تأكيد</h3>
+      <p id="confirmMessage" style="font-size:14px;line-height:1.8"></p>
+      <div class="error" id="confirmError"></div>
+      <div class="modal-actions">
+        <button id="confirmActionBtn">تأكيد</button>
+        <button class="secondary" id="cancelConfirmBtn">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="users.js"></script>
+  <script>
+    let allProfiles = [];
+    let myId = null;
+    let pendingAction = null; // الدالة اللي تنفّذ فعليًا عند الضغط على "تأكيد"
+
+    document.getElementById("backBtn").addEventListener("click", () => {
+      window.history.back();
+    });
+
+    // -------------------------------------------------
+    // تنسيق التاريخ بالتقويم الهجري (نفس أسلوب التعاميم)
+    // -------------------------------------------------
+    function formatDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+    }
+
+    // رسالة الخطأ: نعرض رسائل الصلاحيات كما هي من قاعدة البيانات، وأي خطأ آخر برسالة عامة
+    function friendlyError(e) {
+      const msg = (e && e.message) || "";
+      if (msg.includes("غير مصرّح") || msg.includes("لا يمكن")) return msg;
+      return "تعذّر تنفيذ العملية";
+    }
+
+    function roleBadgeHtml(profile) {
+      if (profile.role === "owner") return '<span class="role-badge owner">مالك النظام</span>';
+      if (profile.role === "admin") return '<span class="role-badge admin">مشرف</span>';
+      return '<span class="role-badge viewer">مفتش</span>';
+    }
+
+    // -------------------------------------------------
+    // رسم بطاقة حساب واحد
+    // -------------------------------------------------
+    function buildUserCard(profile) {
+      const card = document.createElement("div");
+      card.className = "user-card" + (profile.is_disabled ? " is-disabled" : "");
+
+      const top = document.createElement("div");
+      top.className = "user-card-top";
+
+      const email = document.createElement("div");
+      email.className = "user-email";
+      email.textContent = profile.email;
+
+      const badges = document.createElement("div");
+      badges.className = "user-badges";
+      badges.innerHTML = roleBadgeHtml(profile) + (profile.is_disabled ? '<span class="role-badge disabled">معطّل</span>' : "");
+
+      top.appendChild(email);
+      top.appendChild(badges);
+
+      const created = document.createElement("div");
+      created.className = "user-created";
+      created.textContent = "تاريخ التسجيل: " + formatDate(profile.created_at);
+
+      card.appendChild(top);
+      card.appendChild(created);
+
+      const actions = document.createElement("div");
+      actions.className = "user-card-actions";
+
+      if (profile.id === myId) {
+        const note = document.createElement("span");
+        note.className = "user-self-note";
+        note.textContent = "هذا حسابك";
+        actions.appendChild(note);
+      } else if (profile.role === "owner") {
+        // مالك النظام: بدون أي أزرار
+      } else {
+        // ترقية/إرجاع — لا تظهر إذا الحساب معطّل
+        if (!profile.is_disabled) {
+          const roleBtn = document.createElement("button");
+          roleBtn.className = "secondary";
+          if (profile.role === "admin") {
+            roleBtn.textContent = "إرجاع لمفتش";
+            roleBtn.addEventListener("click", () => {
+              openConfirm(
+                `إرجاع ${profile.email} إلى مفتش؟ سيفقد صلاحية الإضافة والتعديل.`,
+                false,
+                () => setUserRole(profile.id, "viewer")
+              );
+            });
+          } else {
+            roleBtn.textContent = "ترقية لمشرف";
+            roleBtn.addEventListener("click", () => {
+              openConfirm(
+                `ترقية ${profile.email} إلى مشرف؟ سيتمكن من إضافة المحتوى وتعديله وحذفه.`,
+                false,
+                () => setUserRole(profile.id, "admin")
+              );
+            });
+          }
+          actions.appendChild(roleBtn);
+        }
+
+        // تعطيل/تفعيل — يظهر دائمًا
+        const disableBtn = document.createElement("button");
+        disableBtn.className = "secondary" + (profile.is_disabled ? "" : " danger-text");
+        if (profile.is_disabled) {
+          disableBtn.textContent = "تفعيل الحساب";
+          disableBtn.addEventListener("click", () => {
+            openConfirm(`تفعيل حساب ${profile.email}؟ سيعود قادرًا على استخدام النظام.`, false, () =>
+              setUserDisabled(profile.id, false)
+            );
+          });
+        } else {
+          disableBtn.textContent = "تعطيل الحساب";
+          disableBtn.addEventListener("click", () => {
+            openConfirm(
+              `تعطيل حساب ${profile.email}؟ لن يتمكن من تصفح أي محتوى، وتُمسح البيانات المحفوظة بجهازه.`,
+              true,
+              () => setUserDisabled(profile.id, true)
+            );
+          });
+        }
+        actions.appendChild(disableBtn);
+      }
+
+      card.appendChild(actions);
+      return card;
+    }
+
+    // -------------------------------------------------
+    // رسم القائمة كاملة، مع تصفية اختيارية بالبريد
+    // -------------------------------------------------
+    function renderUsers() {
+      const query = document.getElementById("userSearchInput").value.trim().toLowerCase();
+      const filtered = query ? allProfiles.filter((p) => p.email.toLowerCase().includes(query)) : allProfiles;
+
+      document.getElementById("userCountLine").textContent = "عدد الحسابات: " + allProfiles.length;
+
+      const list = document.getElementById("usersList");
+      list.innerHTML = "";
+      if (filtered.length === 0) {
+        list.innerHTML = '<div class="empty-hint">لا توجد حسابات مطابقة.</div>';
+        return;
+      }
+      filtered.forEach((p) => list.appendChild(buildUserCard(p)));
+    }
+
+    document.getElementById("userSearchInput").addEventListener("input", renderUsers);
+
+    async function loadUsers() {
+      allProfiles = await fetchAllProfiles();
+      renderUsers();
+    }
+
+    // -------------------------------------------------
+    // نافذة التأكيد العامة
+    // -------------------------------------------------
+    const confirmModal = document.getElementById("confirmModal");
+    const confirmMessageEl = document.getElementById("confirmMessage");
+    const confirmErrorEl = document.getElementById("confirmError");
+    const confirmActionBtn = document.getElementById("confirmActionBtn");
+
+    function openConfirm(message, isDanger, action) {
+      confirmMessageEl.textContent = message;
+      confirmMessageEl.style.color = isDanger ? "#b91c1c" : "var(--text)";
+      confirmErrorEl.textContent = "";
+      pendingAction = action;
+      confirmModal.style.display = "flex";
+    }
+
+    document.getElementById("cancelConfirmBtn").addEventListener("click", () => {
+      confirmModal.style.display = "none";
+      pendingAction = null;
+    });
+
+    confirmActionBtn.addEventListener("click", async () => {
+      if (!pendingAction) return;
+      confirmActionBtn.disabled = true; // يمنع تكرار الضغط
+      confirmErrorEl.textContent = "";
+      try {
+        await pendingAction();
+        confirmModal.style.display = "none";
+        pendingAction = null;
+        await loadUsers(); // إعادة تحميل القائمة بعد نجاح العملية
+      } catch (e) {
+        confirmErrorEl.textContent = friendlyError(e);
+      } finally {
+        confirmActionBtn.disabled = false;
+      }
+    });
+
+    // ==================================================================
+    // تشغيل الصفحة: owner فقط، غيره يُحوَّل للصفحة الرئيسية
+    // ==================================================================
+    (async () => {
+      const profile = await requireAuth();
+      if (!profile) return;
+
+      if (profile.role !== "owner") {
+        window.location.href = "index.html";
+        return;
+      }
+
+      myId = profile.id;
+      await loadUsers();
+    })();
+  </script>
+</body>
+</html>

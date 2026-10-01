@@ -48,9 +48,9 @@ async function logout() {
 }
 
 // -------------------------------------------------
-// جلب بيانات المستخدم المسجل دخوله حاليًا (id + email + role)
+// جلب بيانات المستخدم المسجل دخوله حاليًا (id + email + role + is_disabled)
 // لو ما فيه أحد مسجل دخول، ترجع null
-// role تكون إما "admin" أو "viewer" (معرّفة بجدول profiles)
+// role تكون "owner" (مالك النظام) أو "admin" (مشرف) أو "viewer" (مفتش)
 //
 // تسريع: نخزّن النتيجة مؤقتًا بـ sessionStorage (يتفضّى تلقائيًا لما تسكّر التبويب،
 // أو عند تسجيل الخروج). هذا يلغي طلب قاعدة بيانات إضافي بكل انتقال بين الصفحات
@@ -72,10 +72,10 @@ async function getCurrentProfile() {
     }
   }
 
-  // الخطوة 3: نجيب صف هذا المستخدم من جدول profiles عشان نعرف دوره
+  // الخطوة 3: نجيب صف هذا المستخدم من جدول profiles عشان نعرف دوره وحالة حسابه
   const { data, error } = await supabaseClient
     .from("profiles")
-    .select("id, email, role")
+    .select("id, email, role, is_disabled")
     .eq("id", session.user.id)
     .single();
 
@@ -83,6 +83,20 @@ async function getCurrentProfile() {
 
   sessionStorage.setItem("inspector_profile_cache", JSON.stringify(data));
   return data;
+}
+
+// -------------------------------------------------
+// شاشة الحساب المعطّل — تستبدل محتوى الصفحة بالكامل، تستخدمها requireAuth تلقائيًا
+// -------------------------------------------------
+function showDisabledAccountScreen() {
+  document.body.innerHTML = `
+    <div class="disabled-account-screen">
+      <h2>تم تعطيل حسابك</h2>
+      <p>لا يمكنك استخدام مساعد المفتش حاليًا. تواصل مع مالك النظام لإعادة تفعيل حسابك.</p>
+      <button id="disabledLogoutBtn" class="secondary">تسجيل الخروج</button>
+    </div>
+  `;
+  document.getElementById("disabledLogoutBtn").addEventListener("click", logout);
 }
 
 // -------------------------------------------------
@@ -95,8 +109,11 @@ async function getCurrentProfile() {
 //     const profile = await requireAuth({ adminOnly: true });
 //
 // - لو ما فيه تسجيل دخول أصلاً → يحوّل لصفحة login.html
+// - لو الحساب معطّل → يستبدل الصفحة بشاشة "تم تعطيل حسابك"
 // - لو adminOnly = true والمستخدم دوره viewer → يحوّل لصفحة index.html
-// - لو كل شي تمام → يرجع بيانات المستخدم (profile) عشان تستخدمها بالصفحة
+//   (مالك النظام "owner" يُعامل معاملة المشرف بالكامل، فيعتبر مطابقًا لـ adminOnly)
+// - لو كل شي تمام → يرجع بيانات المستخدم (profile) عشان تستخدمها بالصفحة،
+//   ويُظهر رابط "إدارة المستخدمين" بالقائمة الجانبية تلقائيًا لو كان المستخدم مالك النظام
 // -------------------------------------------------
 async function requireAuth(options = {}) {
   const profile = await getCurrentProfile();
@@ -106,10 +123,20 @@ async function requireAuth(options = {}) {
     return null;
   }
 
-  if (options.adminOnly && profile.role !== "admin") {
+  if (profile.is_disabled) {
+    showDisabledAccountScreen();
+    return null;
+  }
+
+  const isAdminOrOwner = profile.role === "admin" || profile.role === "owner";
+  if (options.adminOnly && !isAdminOrOwner) {
     window.location.href = "index.html";
     return null;
   }
+
+  // رابط إدارة المستخدمين بالقائمة الجانبية (لو موجود بالصفحة) يظهر لمالك النظام فقط
+  const usersLink = document.getElementById("usersManageLink");
+  if (usersLink) usersLink.style.display = profile.role === "owner" ? "" : "none";
 
   return profile;
 }

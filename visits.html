@@ -55,8 +55,12 @@
   <div class="main" style="padding-bottom:8px">
     <div class="tools-row" style="margin-top:16px;align-items:center">
       <h2 id="toolTitle" style="margin:0"></h2>
-      <button class="secondary" id="settingsBtn">الإعدادات</button>
+      <div style="display:flex;gap:8px">
+        <button class="secondary" id="exportBtn">تصدير Excel</button>
+        <button class="secondary" id="settingsBtn">الإعدادات</button>
+      </div>
     </div>
+    <div class="export-status" id="exportStatus" style="display:none"></div>
 
     <!-- تنبيه عدم وجود اسم ثلاثي — يحجب التسجيل لحين إضافته -->
     <div id="noNameNotice" style="display:none">
@@ -169,11 +173,14 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
   <script src="visits.js"></script>
+  <script src="export.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const toolId = urlParams.get("tool_id");
@@ -652,6 +659,37 @@
         renderSettingsLists();
       } catch (e) {
         settingsError.textContent = e.message || "تعذر الإضافة";
+      }
+    });
+
+    // -------------------------------------------------
+    // تصدير Excel — المشرف يصدّر كل الزيارات
+    // -------------------------------------------------
+    document.getElementById("exportBtn").addEventListener("click", async () => {
+      const statusEl = document.getElementById("exportStatus");
+      const btn = document.getElementById("exportBtn");
+      if (allVisits.length === 0) {
+        alert("لا توجد زيارات لتصديرها");
+        return;
+      }
+      btn.disabled = true;
+      statusEl.style.display = "block";
+      statusEl.className = "export-status";
+      statusEl.textContent = "جارٍ تجهيز ملف التصدير...";
+      try {
+        const tool = { name: document.getElementById("toolTitle").textContent };
+        await exportVisitsToZip(tool, allVisits, statuses, areas, (done, total) => {
+          statusEl.textContent = total > 0 ? `جارٍ تجهيز الصور... (${done} من ${total})` : "جارٍ تجهيز ملف التصدير...";
+        });
+        statusEl.textContent = "تم التصدير ✓";
+        setTimeout(() => {
+          if (statusEl.textContent === "تم التصدير ✓") statusEl.style.display = "none";
+        }, 3000);
+      } catch (e) {
+        statusEl.className = "export-status error";
+        statusEl.textContent = "تعذّر التصدير: " + (e.message || "");
+      } finally {
+        btn.disabled = false;
       }
     });
 

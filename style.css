@@ -1111,3 +1111,11 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   border-bottom: 1px solid var(--border);
 }
 .visit-detail-row span:first-child { color: var(--text-muted); flex-shrink: 0; }
+
+/* شريط حالة التصدير (أداة الزيارات) */
+.export-status {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 6px 0 10px;
+}
+.export-status.error { color: #b91c1c; }

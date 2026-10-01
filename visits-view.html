@@ -53,7 +53,11 @@
 </script>
 
   <div class="main" style="padding-bottom:8px">
-    <h2 id="toolTitle" style="margin-top:16px"></h2>
+    <div class="tools-row" style="margin-top:16px;align-items:center">
+      <h2 id="toolTitle" style="margin:0"></h2>
+      <button class="secondary" id="exportBtn">تصدير زياراتي</button>
+    </div>
+    <div class="export-status" id="exportStatus" style="display:none"></div>
 
     <!-- تنبيه عدم وجود اسم ثلاثي — يحجب التسجيل لحين إضافته -->
     <div id="noNameNotice" style="display:none">
@@ -146,11 +150,14 @@
     <a href="tools.html" class="active"><span class="nav-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span>أدوات مساعدة</a>
   </nav>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
   <script src="visits.js"></script>
+  <script src="export.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const toolId = urlParams.get("tool_id");
@@ -333,6 +340,7 @@
             ...created,
             visit_statuses: statuses.find((s) => s.id === status_id) || null,
             visit_areas: areas.find((a) => a.id === area_id) || null,
+            profiles: { full_name: myProfile.full_name, email: myProfile.email },
           });
           successEl.textContent = "تم حفظ الزيارة ✓";
           resetRegisterForm();
@@ -487,6 +495,37 @@
       if (detailVisit) openEditVisit(detailVisit);
     });
 
+    // -------------------------------------------------
+    // تصدير Excel — المفتش يصدّر زياراته هو بس
+    // -------------------------------------------------
+    document.getElementById("exportBtn").addEventListener("click", async () => {
+      const statusEl = document.getElementById("exportStatus");
+      const btn = document.getElementById("exportBtn");
+      if (myVisits.length === 0) {
+        alert("لا توجد زيارات لتصديرها");
+        return;
+      }
+      btn.disabled = true;
+      statusEl.style.display = "block";
+      statusEl.className = "export-status";
+      statusEl.textContent = "جارٍ تجهيز ملف التصدير...";
+      try {
+        const tool = { name: document.getElementById("toolTitle").textContent };
+        await exportVisitsToZip(tool, myVisits, statuses, areas, (done, total) => {
+          statusEl.textContent = total > 0 ? `جارٍ تجهيز الصور... (${done} من ${total})` : "جارٍ تجهيز ملف التصدير...";
+        });
+        statusEl.textContent = "تم التصدير ✓";
+        setTimeout(() => {
+          if (statusEl.textContent === "تم التصدير ✓") statusEl.style.display = "none";
+        }, 3000);
+      } catch (e) {
+        statusEl.className = "export-status error";
+        statusEl.textContent = "تعذّر التصدير: " + (e.message || "");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
     // ==================================================================
     // تشغيل الصفحة
     // ==================================================================
@@ -517,6 +556,10 @@
       fillSelect(document.getElementById("filterArea"), areas, "كل النطاقات");
 
       myVisits = await fetchVisits(toolId, { mineOnly: true, myId: profile.id });
+      // كلها زياراته هو، فنلحق اسمه مباشرة بدون طلب إضافي (يُستخدم بعمود "منفّذ الزيارة" عند التصدير)
+      myVisits.forEach((v) => {
+        v.profiles = { full_name: profile.full_name, email: profile.email };
+      });
 
       document.getElementById("visitTabsWrap").style.display = "block";
       showTab("register");

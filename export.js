@@ -112,6 +112,7 @@ async function exportVisitsToZip(tool, visits, statuses, areas, onProgress) {
   ];
 
   // لتسمية ملفات الصور بمجلد كل نطاق (تكرار اسم المنشأة داخل نفس النطاق يُرقَّم)
+  const usedNamesByArea = new Map();
   // نثبّت رقم التكرار مرة وحدة لكل زيارة (مو مرة لكل صورة)، عشان صورتي نفس الزيارة ياخذوا نفس الرقم
   function establishmentOccurrence(areaName, establishmentName) {
     if (!usedNamesByArea.has(areaName)) usedNamesByArea.set(areaName, new Map());

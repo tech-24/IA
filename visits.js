@@ -155,10 +155,22 @@ async function updateVisit(id, updates) {
   return data;
 }
 
-// حذف زيارة واحدة (للمشرف فقط حسب صلاحيات RLS) — لا يحذف صورها من التخزين تلقائيًا
+// حذف زيارة واحدة (للمشرف فقط حسب صلاحيات RLS)
 async function deleteVisit(id) {
   const { error } = await supabaseClient.from("visits").delete().eq("id", id);
   if (error) throw error;
+}
+
+// تنظيف صور زيارة واحدة من التخزين (تُستدعى قبل deleteVisit من الصفحة نفسها،
+// لأن حذف صف الزيارة وحده لا يحذف صورها تلقائيًا من Storage)
+async function deleteVisitPhotoFiles(visit) {
+  const paths = [visit.establishment_photo_path, visit.license_photo_path].filter(Boolean);
+  if (paths.length === 0) return;
+  try {
+    await supabaseClient.storage.from(VISIT_PHOTOS_BUCKET).remove(paths);
+  } catch (e) {
+    // تجاهل بصمت — حذف صف الزيارة أهم وما نوقفه بسبب فشل حذف الصور
+  }
 }
 
 // عدد زيارات أداة معيّنة (تُستخدم برسالة تأكيد حذف الأداة)

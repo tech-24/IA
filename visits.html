@@ -62,20 +62,10 @@
     </div>
     <div class="export-status" id="exportStatus" style="display:none"></div>
 
-    <!-- تنبيه عدم وجود اسم ثلاثي — يحجب التسجيل لحين إضافته -->
-    <div id="noNameNotice" style="display:none">
-      <p style="color:#b91c1c;font-size:14px;margin-bottom:10px">أضف اسمك الثلاثي أولاً قبل تسجيل الزيارات.</p>
-      <a href="account.html" style="display:inline-block"><button type="button">فتح صفحة حسابي</button></a>
-    </div>
-
     <div id="visitTabsWrap" style="display:none">
-      <div class="tabs-row">
-        <button class="tab-btn active" id="registerTabBtn">تسجيل زيارة</button>
-        <button class="tab-btn" id="allVisitsTabBtn">كل الزيارات</button>
-      </div>
-
-      <!-- ==================== تبويب تسجيل زيارة ==================== -->
-      <div id="registerTab">
+      <!-- ==================== نموذج تعديل زيارة — يظهر فقط عند الضغط على "تعديل" ==================== -->
+      <div id="registerTab" style="display:none">
+        <h3 style="margin-top:0">تعديل الزيارة</h3>
         <div class="field">
           <label for="visitEstablishment">اسم المنشأة</label>
           <input type="text" id="visitEstablishment" />
@@ -109,11 +99,11 @@
         <div class="error" id="registerError"></div>
         <div class="success" id="registerSuccess"></div>
         <button id="saveVisitBtn">حفظ الزيارة</button>
-        <button class="secondary" id="cancelEditVisitBtn" style="display:none">إلغاء التعديل</button>
+        <button class="secondary" id="cancelEditVisitBtn">إلغاء</button>
       </div>
 
-      <!-- ==================== تبويب كل الزيارات ==================== -->
-      <div id="allVisitsTab" style="display:none">
+      <!-- ==================== كل الزيارات (الواجهة الافتراضية للمشرف) ==================== -->
+      <div id="allVisitsTab">
         <div class="field">
           <input type="text" id="visitSearchInput" placeholder="ابحث باسم المنشأة أو رقم الرخصة..." />
         </div>
@@ -201,45 +191,25 @@
       return STATUS_COLORS[index >= 0 ? index % STATUS_COLORS.length : 0];
     }
 
-    function captureLocation() {
-      const hint = document.getElementById("locationHint");
-      if (!navigator.geolocation) {
-        hint.textContent = "تعذّر تحديد الموقع تلقائيًا";
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          capturedLat = pos.coords.latitude;
-          capturedLng = pos.coords.longitude;
-          hint.textContent = "✓ تم تحديد الموقع";
-        },
-        () => {
-          capturedLat = null;
-          capturedLng = null;
-          hint.textContent = "تعذّر تحديد الموقع (سيُحفظ بدونه)";
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    }
+    // ملاحظة: النموذج هنا للتعديل فقط (لا تسجيل زيارة جديدة بلوحة المشرف)،
+    // فما نحتاج دالة تحديد موقع تلقائي — الموقع المعروض دائمًا هو موقع الزيارة الأصلي المسجَّل
 
     // -------------------------------------------------
-    // التبويبات
+    // لوحة المشرف: الواجهة الافتراضية هي "كل الزيارات" دائمًا
+    // نموذج التعديل يظهر فقط مؤقتًا عند الضغط على "تعديل" بنافذة التفاصيل
     // -------------------------------------------------
-    const registerTabBtn = document.getElementById("registerTabBtn");
-    const allVisitsTabBtn = document.getElementById("allVisitsTabBtn");
     const registerTab = document.getElementById("registerTab");
     const allVisitsTab = document.getElementById("allVisitsTab");
 
-    function showTab(tab) {
-      registerTabBtn.classList.toggle("active", tab === "register");
-      allVisitsTabBtn.classList.toggle("active", tab === "all");
-      registerTab.style.display = tab === "register" ? "block" : "none";
-      allVisitsTab.style.display = tab === "all" ? "block" : "none";
-      if (tab === "register" && editingVisitId === null) captureLocation();
-      if (tab === "all") renderMonths();
+    function showList() {
+      registerTab.style.display = "none";
+      allVisitsTab.style.display = "block";
+      renderMonths();
     }
-    registerTabBtn.addEventListener("click", () => showTab("register"));
-    allVisitsTabBtn.addEventListener("click", () => showTab("all"));
+    function showEditForm() {
+      allVisitsTab.style.display = "none";
+      registerTab.style.display = "block";
+    }
 
     function fillSelect(select, items, placeholder) {
       select.innerHTML = placeholder ? `<option value="">${placeholder}</option>` : "";
@@ -254,22 +224,12 @@
     // -------------------------------------------------
     // تسجيل/تعديل زيارة (نفس منطق صفحة المفتش، والمفتش هنا هو المشرف نفسه)
     // -------------------------------------------------
+    // لوحة المشرف: النموذج يُستخدم للتعديل فقط، فبعد الحفظ أو الإلغاء نرجع للقائمة مباشرة
     function resetRegisterForm() {
       editingVisitId = null;
-      document.getElementById("visitEstablishment").value = "";
-      document.getElementById("visitLicense").value = "";
-      document.getElementById("visitStreet").value = "";
-      document.getElementById("visitEstPhoto").value = "";
-      document.getElementById("visitLicPhoto").value = "";
-      document.getElementById("visitStatus").value = statuses[0] ? statuses[0].id : "";
-      document.getElementById("visitArea").value = areas[0] ? areas[0].id : "";
       document.getElementById("registerError").textContent = "";
       document.getElementById("registerSuccess").textContent = "";
-      document.getElementById("saveVisitBtn").textContent = "حفظ الزيارة";
-      document.getElementById("cancelEditVisitBtn").style.display = "none";
-      capturedLat = null;
-      capturedLng = null;
-      captureLocation();
+      showList();
     }
 
     function openEditVisit(visit) {
@@ -287,9 +247,8 @@
       document.getElementById("registerError").textContent = "";
       document.getElementById("registerSuccess").textContent = "";
       document.getElementById("saveVisitBtn").textContent = "حفظ التعديل";
-      document.getElementById("cancelEditVisitBtn").style.display = "inline-block";
       document.getElementById("visitDetailModal").style.display = "none";
-      showTab("register");
+      showEditForm();
     }
 
     document.getElementById("cancelEditVisitBtn").addEventListener("click", resetRegisterForm);
@@ -522,6 +481,7 @@
       const confirmed = confirm(`هل أنت متأكد من حذف زيارة "${detailVisit.establishment_name}"؟`);
       if (!confirmed) return;
       try {
+        await deleteVisitPhotoFiles(detailVisit); // نحذف الصور أولًا، قبل ما يضيع مسارها بحذف الصف
         await deleteVisit(detailVisit.id);
         allVisits = allVisits.filter((v) => v.id !== detailVisit.id);
         document.getElementById("visitDetailModal").style.display = "none";
@@ -710,11 +670,6 @@
       const tool = tools.find((t) => t.id === toolId);
       document.getElementById("toolTitle").textContent = tool ? tool.name : "تسجيل الزيارات";
 
-      if (!profile.full_name) {
-        document.getElementById("noNameNotice").style.display = "block";
-        return;
-      }
-
       statuses = await fetchVisitStatuses(toolId);
       areas = await fetchVisitAreas(toolId);
       fillSelect(document.getElementById("visitStatus"), statuses, null);
@@ -738,7 +693,7 @@
       });
 
       document.getElementById("visitTabsWrap").style.display = "block";
-      showTab("register");
+      showList();
     })();
   </script>
 </body>

@@ -32,8 +32,14 @@ async function login(email, password) {
 // عند الإنشاء، جدول profiles بقاعدة البيانات يضيف له صف تلقائيًا
 // بدور "viewer" افتراضيًا (هذا معرّف بملف schema.sql وليس هنا)
 // -------------------------------------------------
-async function signup(email, password) {
-  const { data, error } = await supabaseClient.auth.signUp({ email, password });
+// fullName يُرسل ضمن بيانات التسجيل نفسها (مو باستدعاء منفصل بعدها)، وقاعدة البيانات
+// تحفظه تلقائيًا بـ profiles.full_name عن طريق مُشغّل عند إنشاء الحساب
+async function signup(email, password, fullName) {
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: fullName } },
+  });
   if (error) throw error;
   return data;
 }

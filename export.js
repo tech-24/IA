@@ -47,11 +47,13 @@ async function fetchImageBuffer(path) {
 // -------------------------------------------------
 // التصدير الرئيسي
 // tool: صف الأداة { id, name }
-// visits: الزيارات المطلوب تصديرها (كل الزيارات أو زيارات مفتش واحد، حسب الاستدعاء)
+// visits: الزيارات المطلوب تصديرها — المفلترة فعليًا (نفس اللي ظاهر بالقائمة)
 // statuses / areas: كل حالات ونطاقات الأداة (بترتيبها، لتوليد أعمدة الملخص وألوان الحالات)
-// onProgress(done, total): استدعاء اختياري لتحديث شريط تقدّم بالواجهة
+// includePhotos: true = ملف Excel + مجلد صور داخل ZIP، false = ملف Excel وحده بدون صور
+// filterSummary: نص يوضّح الفلاتر الفعّالة وقت التصدير، يُكتب أعلى ورقة "ملخص"
+// onProgress(done, total): استدعاء اختياري لتحديث شريط تقدّم بالواجهة (يُستدعى فقط لو تضمين الصور مفعّل)
 // -------------------------------------------------
-async function exportVisitsToZip(tool, visits, statuses, areas, onProgress) {
+async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, filterSummary, onProgress) {
   const workbook = new ExcelJS.Workbook();
 
   // لون كل حالة حسب ترتيبها — نفس منطق الألوان المستخدم بعرض القائمة بالصفحة
@@ -72,9 +74,18 @@ async function exportVisitsToZip(tool, visits, statuses, areas, onProgress) {
   // ورقة "ملخص" أولًا: صف لكل نطاق فيه زيارات + صف الإجمالي بالنهاية
   // ================================================================
   const summarySheet = workbook.addWorksheet("ملخص", { views: [{ rightToLeft: true }] });
+  const summaryColumnCount = 2 + statuses.length;
+
+  if (filterSummary) {
+    const filterRow = summarySheet.addRow([filterSummary]);
+    summarySheet.mergeCells(filterRow.number, 1, filterRow.number, summaryColumnCount);
+    filterRow.font = { italic: true, color: { argb: "FF64748B" } };
+    summarySheet.addRow([]); // صف فاضي يفصل الفلاتر عن الجدول
+  }
+
   const summaryHeader = ["النطاق", "عدد الزيارات", ...statuses.map((s) => s.name)];
-  summarySheet.addRow(summaryHeader);
-  styleHeaderRow(summarySheet.getRow(1));
+  const headerRow = summarySheet.addRow(summaryHeader);
+  styleHeaderRow(headerRow);
 
   const totals = new Array(statuses.length).fill(0);
   let grandTotal = 0;
@@ -107,11 +118,12 @@ async function exportVisitsToZip(tool, visits, statuses, areas, onProgress) {
     { header: "الحالة", width: 16 },
     { header: "منفّذ الزيارة", width: 20 },
     { header: "الموقع", width: 14 },
-    { header: "صورة المنشأة", width: 16 },
-    { header: "صورة الرخصة", width: 16 },
   ];
+  if (includePhotos) {
+    AREA_COLUMNS.push({ header: "صورة المنشأة", width: 16 }, { header: "صورة الرخصة", width: 16 });
+  }
 
-  // لتسمية ملفات الصور بمجلد كل نطاق (تكرار اسم المنشأة داخل نفس النطاق يُرقَّم)
+  // لتسمية ملفات الصور بمجلد كل نطاق (تكرار اسم المنشأة داخل نفس النطاق يُرقَّم) — تُستخدم فقط لو تضمين الصور مفعّل
   const usedNamesByArea = new Map();
   // نثبّت رقم التكرار مرة وحدة لكل زيارة (مو مرة لكل صورة)، عشان صورتي نفس الزيارة ياخذوا نفس الرقم
   function establishmentOccurrence(areaName, establishmentName) {
@@ -123,11 +135,12 @@ async function exportVisitsToZip(tool, visits, statuses, areas, onProgress) {
     return n;
   }
 
-  const zip = new JSZip();
-  const photosFolder = zip.folder("الصور");
-
+  const zip = includePhotos ? new JSZip() : null;
+  const photosFolder = includePhotos ? zip.folder("الصور") : null;
   let doneCount = 0;
-  const totalPhotos = visits.filter((v) => v.establishment_photo_path).length + visits.filter((v) => v.license_photo_path).length;
+  const totalPhotos = includePhotos
+    ? visits.filter((v) => v.establishment_photo_path).length + visits.filter((v) => v.license_photo_path).length
+    : 0;
 
   for (const area of areas) {
     const areaVisits = (visitsByArea.get(area.id) || []).slice().sort((a, b) => new Date(a.visited_at) - new Date(b.visited_at));
@@ -145,9 +158,11 @@ async function exportVisitsToZip(tool, visits, statuses, areas, onProgress) {
       const { date, time } = exportDateParts(v.visited_at);
       const statusName = (statuses.find((s) => s.id === v.status_id) || {}).name || "";
       const inspector = (v.profiles && (v.profiles.full_name || v.profiles.email)) || "—";
-      const locationUrl = v.latitude && v.longitude ? `https://maps.google.com/?q=${v.latitude},${v.longitude}` : null;
+      // الرابط اليدوي الملصق له الأولوية، وإلا رابط الإحداثيات التلقائية
+      const locationUrl =
+        v.location_url || (v.latitude && v.longitude ? `https://maps.google.com/?q=${v.latitude},${v.longitude}` : null);
 
-      const row = sheet.addRow([
+      const rowValues = [
         i + 1,
         date,
         time,
@@ -157,10 +172,11 @@ async function exportVisitsToZip(tool, visits, statuses, areas, onProgress) {
         statusName,
         inspector,
         locationUrl ? { text: "فتح الموقع", hyperlink: locationUrl } : "",
-        "",
-        "",
-      ]);
-      row.height = 60;
+      ];
+      if (includePhotos) rowValues.push("", "");
+
+      const row = sheet.addRow(rowValues);
+      if (includePhotos) row.height = 60;
 
       const colorIdx = statusColorIndex[v.status_id];
       if (colorIdx !== undefined) {
@@ -169,6 +185,8 @@ async function exportVisitsToZip(tool, visits, statuses, areas, onProgress) {
         cell.font = { color: { argb: STATUS_TEXT_COLORS[colorIdx] }, bold: true };
       }
       if (locationUrl) row.getCell(9).font = { color: { argb: "FF3379BD" }, underline: true };
+
+      if (!includePhotos) continue; // بدون تضمين صور، نكتفي بصف البيانات النصية
 
       // رقم تكرار اسم المنشأة بهذا النطاق (مشترك بين صورتي الزيارة)
       const occurrence = v.establishment_photo_path || v.license_photo_path ? establishmentOccurrence(area.name, v.establishment_name) : null;
@@ -206,15 +224,25 @@ async function exportVisitsToZip(tool, visits, statuses, areas, onProgress) {
   }
 
   // ================================================================
-  // تجميع الملف النهائي: إكسل + مجلد الصور، داخل ZIP واحد
+  // تجميع الملف النهائي
+  // تضمين الصور مفعّل: إكسل + مجلد الصور داخل ZIP
+  // تضمين الصور مطفّي: ملف إكسل وحده، بدون ZIP
   // ================================================================
   const excelBuffer = await workbook.xlsx.writeBuffer();
   const safeToolName = sanitizeFileName(tool.name);
-  zip.file(`${safeToolName}.xlsx`, excelBuffer);
-
-  const zipBlob = await zip.generateAsync({ type: "blob" });
   const dateStamp = new Date().toISOString().slice(0, 10);
-  downloadBlob(zipBlob, `${safeToolName} - ${dateStamp}.zip`);
+
+  if (includePhotos) {
+    // نفس نسخة zip اللي أُنشئت فوق (وفيها مجلد "الصور" معبّى فعليًا أثناء الحلقة) — نضيف لها ملف الإكسل الآن بس
+    zip.file(`${safeToolName}.xlsx`, excelBuffer);
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    downloadBlob(zipBlob, `${safeToolName} - ${dateStamp}.zip`);
+  } else {
+    downloadBlob(
+      new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+      `${safeToolName} - ${dateStamp}.xlsx`
+    );
+  }
 }
 
 // -------------------------------------------------
@@ -225,7 +253,7 @@ function styleHeaderRow(row) {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND_COLOR_ARGB } };
     cell.font = { color: { argb: "FFFFFFFF" }, bold: true };
   });
-  row.worksheet.views = [{ rightToLeft: true, state: "frozen", ySplit: 1 }];
+  row.worksheet.views = [{ rightToLeft: true, state: "frozen", ySplit: row.number }];
 }
 
 // -------------------------------------------------

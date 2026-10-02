@@ -32,6 +32,12 @@
       <!-- العنوان يتغيّر تلقائيًا بين "تسجيل الدخول" و "إنشاء حساب جديد" -->
       <h2 id="formTitle">تسجيل الدخول</h2>
 
+      <!-- يظهر فقط بوضع "إنشاء حساب جديد" -->
+      <div class="field" id="fullNameField" style="display:none">
+        <label for="fullName">الاسم الثلاثي</label>
+        <input type="text" id="fullName" />
+      </div>
+
       <div class="field">
         <label for="email">البريد الإلكتروني</label>
         <input type="email" id="email" />
@@ -80,6 +86,7 @@
       toggleModeBtn.textContent = mode === "login"
         ? "ليس لديك حساب؟ أنشئ حسابًا جديدًا"
         : "لديك حساب بالفعل؟ سجّل الدخول";
+      document.getElementById("fullNameField").style.display = mode === "signup" ? "flex" : "none";
       errorMsg.textContent = "";
       successMsg.textContent = "";
     });
@@ -91,10 +98,15 @@
 
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
+      const fullName = document.getElementById("fullName").value.trim();
 
       // تحقق بسيط: الحقول ما تكون فاضية
       if (!email || !password) {
         errorMsg.textContent = "عبّي البريد وكلمة المرور";
+        return;
+      }
+      if (mode === "signup" && !fullName) {
+        errorMsg.textContent = "اكتب اسمك الثلاثي";
         return;
       }
 
@@ -106,13 +118,15 @@
           window.location.href = "index.html";
         } else {
           // إنشاء حساب جديد (الدالة signup موجودة بملف auth.js)
-          await signup(email, password);
+          await signup(email, password, fullName);
           successMsg.textContent = "تم إنشاء الحساب. تحقق من بريدك لتأكيد التسجيل إذا طُلب منك ذلك، ثم سجّل الدخول.";
           // بعد نجاح الإنشاء، نرجّع النموذج لوضع "تسجيل دخول"
           mode = "login";
           formTitle.textContent = "تسجيل الدخول";
           submitBtn.textContent = "دخول";
           toggleModeBtn.textContent = "ليس لديك حساب؟ أنشئ حسابًا جديدًا";
+          document.getElementById("fullNameField").style.display = "none";
+          document.getElementById("fullName").value = "";
         }
       } catch (e) {
         // أي خطأ من Supabase (بريد مستخدم من قبل، كلمة مرور قصيرة...) يظهر هنا

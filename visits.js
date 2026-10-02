@@ -161,6 +161,16 @@ async function deleteVisit(id) {
   if (error) throw error;
 }
 
+// حذف ملف صورة واحد بمساره — تُستدعى لتنظيف صورة قديمة بعد رفع بديلة لها بمسار مختلف
+async function deleteVisitPhotoFile(path) {
+  if (!path) return;
+  try {
+    await supabaseClient.storage.from(VISIT_PHOTOS_BUCKET).remove([path]);
+  } catch (e) {
+    // تجاهل بصمت
+  }
+}
+
 // تنظيف صور زيارة واحدة من التخزين (تُستدعى قبل deleteVisit من الصفحة نفسها،
 // لأن حذف صف الزيارة وحده لا يحذف صورها تلقائيًا من Storage)
 async function deleteVisitPhotoFiles(visit) {

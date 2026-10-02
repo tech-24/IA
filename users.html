@@ -65,9 +65,10 @@
     // -------------------------------------------------
     // تنسيق التاريخ بالتقويم الهجري (نفس أسلوب التعاميم)
     // -------------------------------------------------
+    // تنسيق ميلادي موحّد بكل الموقع: 2026/10/01
     function formatDate(iso) {
       const d = new Date(iso);
-      return d.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+      return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
     }
 
     // رسالة الخطأ: نعرض رسائل الصلاحيات كما هي من قاعدة البيانات، وأي خطأ آخر برسالة عامة

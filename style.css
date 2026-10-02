@@ -1141,9 +1141,32 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   background: #fbfcfe;
 }
 
-.photo-picker-buttons { display: flex; gap: 8px; }
-.photo-picker-buttons button { flex: 1; padding: 9px; font-size: 13px; }
-.photo-picker-name { display: block; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.visit-photo-box {
+  width: 100px;
+  height: 100px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+  background: var(--primary-lighter);
+  border: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.visit-photo-box img { width: 100%; height: 100%; object-fit: cover; }
+.visit-photo-placeholder { font-size: 28px; color: var(--text-muted); line-height: 1; }
+.visit-photo-remove {
+  position: absolute; top: 4px; left: 4px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #fff;
+  border-radius: 50%;
+  width: 22px; height: 22px;
+  font-size: 13px;
+  line-height: 22px;
+  text-align: center;
+  padding: 0;
+}
 
 .location-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
 .location-row .location-hint { margin-bottom: 0; }

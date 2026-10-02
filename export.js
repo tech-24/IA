@@ -116,6 +116,7 @@ async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, f
     { header: "رقم الرخصة", width: 16 },
     { header: "المجمع / الشارع", width: 20 },
     { header: "الحالة", width: 16 },
+    { header: "تاريخ آخر زيارة", width: 15 },
     { header: "منفّذ الزيارة", width: 20 },
     { header: "الموقع", width: 14 },
   ];
@@ -170,6 +171,7 @@ async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, f
         v.license_number || "",
         v.street || "",
         statusName,
+        v.last_visit_date ? v.last_visit_date.replaceAll("-", "/") : "",
         inspector,
         locationUrl ? { text: "فتح الموقع", hyperlink: locationUrl } : "",
       ];
@@ -184,7 +186,7 @@ async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, f
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: STATUS_FILL_COLORS[colorIdx] } };
         cell.font = { color: { argb: STATUS_TEXT_COLORS[colorIdx] }, bold: true };
       }
-      if (locationUrl) row.getCell(9).font = { color: { argb: "FF3379BD" }, underline: true };
+      if (locationUrl) row.getCell(10).font = { color: { argb: "FF3379BD" }, underline: true };
 
       if (!includePhotos) continue; // بدون تضمين صور، نكتفي بصف البيانات النصية
 
@@ -200,7 +202,7 @@ async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, f
           if (!areaFolder) areaFolder = photosFolder.folder(sanitizeFileName(area.name));
           areaFolder.file(`${baseName} - منشأة.jpg`, buffer);
           const imgId = workbook.addImage({ buffer, extension: "jpeg" });
-          sheet.addImage(imgId, { tl: { col: 9, row: row.number - 1 }, ext: { width: 70, height: 60 } });
+          sheet.addImage(imgId, { tl: { col: 10, row: row.number - 1 }, ext: { width: 70, height: 60 } });
         }
         doneCount++;
         if (onProgress) onProgress(doneCount, totalPhotos);
@@ -213,7 +215,7 @@ async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, f
           if (!areaFolder) areaFolder = photosFolder.folder(sanitizeFileName(area.name));
           areaFolder.file(`${baseName} - رخصة.jpg`, buffer);
           const imgId = workbook.addImage({ buffer, extension: "jpeg" });
-          sheet.addImage(imgId, { tl: { col: 10, row: row.number - 1 }, ext: { width: 70, height: 60 } });
+          sheet.addImage(imgId, { tl: { col: 11, row: row.number - 1 }, ext: { width: 70, height: 60 } });
         }
         doneCount++;
         if (onProgress) onProgress(doneCount, totalPhotos);

@@ -57,11 +57,10 @@
       <h2 id="toolTitle" style="margin:0"></h2>
       <div style="display:flex;gap:8px">
         <button class="secondary" id="exportBtn">تصدير Excel</button>
-        <button class="secondary" id="settingsBtn">الإعدادات</button>
       </div>
     </div>
     <label class="ios-toggle on-light" style="margin:4px 0 2px">
-      <span class="toggle-label">تضمين صور المنشآت والرخص</span>
+      <span class="toggle-label">تضمين صور المنشآت والرخص في التصدير</span>
       <input type="checkbox" id="includePhotosToggle" checked />
       <span class="toggle-slider"></span>
     </label>
@@ -85,25 +84,24 @@
         </div>
         <div class="field">
           <label>صورة المنشأة</label>
-          <div class="photo-picker-buttons">
-            <button type="button" class="secondary" id="visitEstPhotoCamBtn">تصوير</button>
-            <button type="button" class="secondary" id="visitEstPhotoLibBtn">من الجهاز</button>
-          </div>
+          <div class="visit-photo-box" id="visitEstPhotoBox"><span class="visit-photo-placeholder">+</span></div>
           <input type="file" id="visitEstPhoto" accept="image/*" style="display:none" />
-          <span class="photo-picker-name" id="visitEstPhotoName"></span>
         </div>
         <div class="field">
           <label>صورة الرخصة</label>
-          <div class="photo-picker-buttons">
-            <button type="button" class="secondary" id="visitLicPhotoCamBtn">تصوير</button>
-            <button type="button" class="secondary" id="visitLicPhotoLibBtn">من الجهاز</button>
-          </div>
+          <div class="visit-photo-box" id="visitLicPhotoBox"><span class="visit-photo-placeholder">+</span></div>
           <input type="file" id="visitLicPhoto" accept="image/*" style="display:none" />
-          <span class="photo-picker-name" id="visitLicPhotoName"></span>
         </div>
         <div class="field">
           <label for="visitStatus">حالة الزيارة</label>
           <select id="visitStatus"></select>
+        </div>
+        <div class="field" id="lastVisitDateField" style="display:none">
+          <label for="lastVisitDateInput">تاريخ آخر زيارة</label>
+          <div style="display:flex;gap:8px">
+            <input type="date" id="lastVisitDateInput" style="flex:1" />
+            <button type="button" class="secondary" id="clearLastVisitDateBtn">مسح</button>
+          </div>
         </div>
         <div class="field">
           <label for="visitArea">نطاق الزيارة</label>
@@ -136,6 +134,14 @@
           <input type="text" id="visitSearchInput" placeholder="ابحث باسم المنشأة أو رقم الرخصة..." />
         </div>
         <div class="visit-filters-row">
+          <select id="periodSelect">
+            <option value="this_month">هذا الشهر</option>
+            <option value="last_month">الشهر الماضي</option>
+            <option value="all_time">كل الوقت</option>
+            <option value="custom">تحديد يدوي</option>
+          </select>
+        </div>
+        <div class="visit-filters-row" id="customDateRow" style="display:none">
           <label class="date-filter-field">من<input type="date" id="filterDateFrom" /></label>
           <label class="date-filter-field">إلى<input type="date" id="filterDateTo" /></label>
         </div>
@@ -150,11 +156,20 @@
   </div>
 
   <!-- ==================== نافذة تفاصيل الزيارة ==================== -->
+  <!-- ==================== نافذة تكبير الصورة ==================== -->
+  <div class="lightbox-overlay" id="lightboxOverlay" style="display:none">
+    <button id="lightboxClose" class="lightbox-close" aria-label="إغلاق">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    </button>
+    <img id="lightboxImg" src="" alt="" />
+  </div>
+
   <div class="modal-overlay" id="visitDetailModal" style="display:none">
     <div class="modal-box">
       <h3 id="detailTitle"></h3>
       <div class="visit-detail-row"><span>المفتش:</span><span id="detailInspector"></span></div>
       <div class="visit-detail-row"><span>الحالة:</span><span id="detailStatus"></span></div>
+      <div class="visit-detail-row" id="detailLastVisitDateRow" style="display:none"><span>تاريخ آخر زيارة:</span><span id="detailLastVisitDate"></span></div>
       <div class="visit-detail-row"><span>النطاق:</span><span id="detailArea"></span></div>
       <div class="visit-detail-row"><span>رقم الرخصة:</span><span id="detailLicense"></span></div>
       <div class="visit-detail-row"><span>المجمع / الشارع:</span><span id="detailStreet"></span></div>
@@ -165,32 +180,6 @@
         <button id="editVisitBtn" class="secondary">تعديل</button>
         <button id="deleteVisitBtn" class="secondary" style="color:#b91c1c">حذف</button>
         <button class="secondary" id="closeDetailBtn">إغلاق</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================== نافذة الإعدادات (الحالات والنطاقات) ==================== -->
-  <div class="modal-overlay" id="settingsModal" style="display:none">
-    <div class="modal-box">
-      <h3>إعدادات الأداة</h3>
-
-      <label style="font-size:13px;color:var(--text-muted);font-weight:600;display:block;margin:10px 0 6px">الحالات</label>
-      <div id="statusesList"></div>
-      <div class="field">
-        <input type="text" id="newStatusName" placeholder="اسم حالة جديدة" />
-      </div>
-      <button class="secondary" id="addStatusBtn">إضافة حالة</button>
-
-      <label style="font-size:13px;color:var(--text-muted);font-weight:600;display:block;margin:18px 0 6px">النطاقات</label>
-      <div id="areasList"></div>
-      <div class="field">
-        <input type="text" id="newAreaName" placeholder="اسم نطاق جديد" />
-      </div>
-      <button class="secondary" id="addAreaBtn">إضافة نطاق</button>
-
-      <div class="error" id="settingsError"></div>
-      <div class="modal-actions">
-        <button class="secondary" id="closeSettingsBtn">إغلاق</button>
       </div>
     </div>
   </div>
@@ -273,22 +262,89 @@
     // -------------------------------------------------
     // اختيار صورة: تصوير (كاميرا) أو من الجهاز (معرض الصور) — نفس الحقل، زرّان مختلفان
     // -------------------------------------------------
-    function setupPhotoPicker(inputId, camBtnId, libBtnId, nameId) {
+    function setupPhotoBox(boxId, inputId) {
+      const box = document.getElementById(boxId);
       const input = document.getElementById(inputId);
-      document.getElementById(camBtnId).addEventListener("click", () => {
-        input.setAttribute("capture", "environment");
-        input.click();
-      });
-      document.getElementById(libBtnId).addEventListener("click", () => {
-        input.removeAttribute("capture");
-        input.click();
-      });
+      let file = null;
+      let existingUrl = null;
+      let hadExisting = false;
+      let clearedExisting = false;
+
+      function render() {
+        box.innerHTML = "";
+        const url = file ? URL.createObjectURL(file) : existingUrl;
+        if (url) {
+          const img = document.createElement("img");
+          img.src = url;
+          box.appendChild(img);
+          const removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "visit-photo-remove";
+          removeBtn.setAttribute("aria-label", "حذف الصورة");
+          removeBtn.textContent = "×";
+          removeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (hadExisting && !file) clearedExisting = true;
+            file = null;
+            existingUrl = null;
+            input.value = "";
+            render();
+          });
+          box.appendChild(removeBtn);
+        } else {
+          box.innerHTML = '<span class="visit-photo-placeholder">+</span>';
+        }
+      }
+
+      box.addEventListener("click", () => input.click());
       input.addEventListener("change", () => {
-        document.getElementById(nameId).textContent = input.files[0] ? "✓ " + input.files[0].name : "";
+        if (input.files[0]) {
+          file = input.files[0];
+          clearedExisting = false;
+          render();
+        }
       });
+
+      return {
+        showExisting(url) {
+          existingUrl = url;
+          hadExisting = !!url;
+          clearedExisting = false;
+          file = null;
+          input.value = "";
+          render();
+        },
+        reset() {
+          file = null;
+          existingUrl = null;
+          hadExisting = false;
+          clearedExisting = false;
+          input.value = "";
+          render();
+        },
+        getFile: () => file,
+        wasCleared: () => clearedExisting,
+      };
     }
-    setupPhotoPicker("visitEstPhoto", "visitEstPhotoCamBtn", "visitEstPhotoLibBtn", "visitEstPhotoName");
-    setupPhotoPicker("visitLicPhoto", "visitLicPhotoCamBtn", "visitLicPhotoLibBtn", "visitLicPhotoName");
+    const estPhotoBox = setupPhotoBox("visitEstPhotoBox", "visitEstPhoto");
+    const licPhotoBox = setupPhotoBox("visitLicPhotoBox", "visitLicPhoto");
+
+    // -------------------------------------------------
+    // تكبير الصورة (Lightbox) بنافذة تفاصيل الزيارة
+    // -------------------------------------------------
+    const lightboxOverlay = document.getElementById("lightboxOverlay");
+    function openLightbox(url) {
+      document.getElementById("lightboxImg").src = url;
+      lightboxOverlay.style.display = "flex";
+    }
+    function closeLightbox() {
+      lightboxOverlay.style.display = "none";
+      document.getElementById("lightboxImg").src = "";
+    }
+    document.getElementById("lightboxClose").addEventListener("click", closeLightbox);
+    lightboxOverlay.addEventListener("click", (e) => {
+      if (e.target === lightboxOverlay) closeLightbox();
+    });
 
     // -------------------------------------------------
     // لوحة المشرف: الواجهة الافتراضية هي "كل الزيارات" دائمًا
@@ -321,6 +377,22 @@
     // تسجيل/تعديل زيارة (نفس منطق صفحة المفتش، والمفتش هنا هو المشرف نفسه)
     // -------------------------------------------------
     // لوحة المشرف: النموذج يُستخدم للتعديل فقط، فبعد الحفظ أو الإلغاء نرجع للقائمة مباشرة
+    // -------------------------------------------------
+    // حقل "تاريخ آخر زيارة" — يظهر فقط لحالة "لم تكتمل المدة" تحديدًا (بالاسم)
+    // -------------------------------------------------
+    function isIncompleteDurationStatus(statusId) {
+      const s = statuses.find((x) => x.id === statusId);
+      return !!s && s.name === "لم تكتمل المدة";
+    }
+    function updateLastVisitDateVisibility() {
+      const show = isIncompleteDurationStatus(document.getElementById("visitStatus").value);
+      document.getElementById("lastVisitDateField").style.display = show ? "flex" : "none";
+    }
+    document.getElementById("visitStatus").addEventListener("change", updateLastVisitDateVisibility);
+    document.getElementById("clearLastVisitDateBtn").addEventListener("click", () => {
+      document.getElementById("lastVisitDateInput").value = "";
+    });
+
     function resetRegisterForm() {
       editingVisitId = null;
       document.getElementById("registerError").textContent = "";
@@ -328,7 +400,7 @@
       showList();
     }
 
-    function openEditVisit(visit) {
+    async function openEditVisit(visit) {
       editingVisitId = visit.id;
       // مهم: نستخدم رقم المفتش الأصلي صاحب الزيارة (مو رقم المشرف الحالي) عند رفع صورة
       // بديلة، وإلا يتكوّن مسار جديد بمجلد المشرف ويبقى مسار المفتش الأصلي يتيمًا
@@ -338,11 +410,19 @@
       document.getElementById("visitEstablishment").value = visit.establishment_name;
       document.getElementById("visitLicense").value = visit.license_number || "";
       document.getElementById("visitStreet").value = visit.street || "";
-      document.getElementById("visitEstPhoto").value = "";
-      document.getElementById("visitLicPhoto").value = "";
-      document.getElementById("visitEstPhotoName").textContent = "";
-      document.getElementById("visitLicPhotoName").textContent = "";
+      estPhotoBox.reset();
+      licPhotoBox.reset();
+      if (visit.establishment_photo_path) {
+        const url = await getVisitPhotoSignedUrl(visit.establishment_photo_path);
+        if (url) estPhotoBox.showExisting(url);
+      }
+      if (visit.license_photo_path) {
+        const url = await getVisitPhotoSignedUrl(visit.license_photo_path);
+        if (url) licPhotoBox.showExisting(url);
+      }
       document.getElementById("visitStatus").value = visit.status_id || "";
+      document.getElementById("lastVisitDateInput").value = visit.last_visit_date || "";
+      updateLastVisitDateVisibility();
       document.getElementById("visitArea").value = visit.area_id || "";
       capturedLat = visit.latitude;
       capturedLng = visit.longitude;
@@ -368,9 +448,13 @@
       const license_number = document.getElementById("visitLicense").value.trim() || null;
       const street = document.getElementById("visitStreet").value.trim() || null;
       const status_id = document.getElementById("visitStatus").value || null;
+      // التاريخ ينحفظ فقط لو الحالة المختارة فعليًا "لم تكتمل المدة"، وإلا يُرسل null دائمًا
+      const last_visit_date = isIncompleteDurationStatus(status_id)
+        ? document.getElementById("lastVisitDateInput").value || null
+        : null;
       const area_id = document.getElementById("visitArea").value || null;
-      const estFile = document.getElementById("visitEstPhoto").files[0];
-      const licFile = document.getElementById("visitLicPhoto").files[0];
+      const estFile = estPhotoBox.getFile();
+      const licFile = licPhotoBox.getFile();
 
       if (!establishment_name) {
         errorEl.textContent = "اكتب اسم المنشأة";
@@ -385,18 +469,24 @@
       btn.disabled = true;
       try {
         if (editingVisitId) {
-          const updates = { establishment_name, license_number, street, status_id, area_id, location_url: manualLocationUrl };
+          const updates = { establishment_name, license_number, street, status_id, area_id, location_url: manualLocationUrl, last_visit_date };
           if (estFile) {
             updates.establishment_photo_path = await uploadVisitPhoto(estFile, editingVisitInspectorId, editingVisitId, "establishment");
             if (editingOldEstPath && editingOldEstPath !== updates.establishment_photo_path) {
               await deleteVisitPhotoFile(editingOldEstPath); // تنظيف المسار القديم لو كان مختلفًا فعليًا
             }
+          } else if (estPhotoBox.wasCleared()) {
+            if (editingOldEstPath) await deleteVisitPhotoFile(editingOldEstPath);
+            updates.establishment_photo_path = null;
           }
           if (licFile) {
             updates.license_photo_path = await uploadVisitPhoto(licFile, editingVisitInspectorId, editingVisitId, "license");
             if (editingOldLicPath && editingOldLicPath !== updates.license_photo_path) {
               await deleteVisitPhotoFile(editingOldLicPath);
             }
+          } else if (licPhotoBox.wasCleared()) {
+            if (editingOldLicPath) await deleteVisitPhotoFile(editingOldLicPath);
+            updates.license_photo_path = null;
           }
           const updated = await updateVisit(editingVisitId, updates);
           const index = allVisits.findIndex((v) => v.id === editingVisitId);
@@ -477,13 +567,39 @@
     let openMonths = new Set();
 
     // يُستخدم بالعرض وبالتصدير مع بعض، عشان التصدير يصدّر بالضبط نفس اللي ظاهر بالقائمة
+    // تحسب حدود الفترة (YYYY-MM-DD) حسب القيمة المختارة بقائمة الفترة
+    function toDateInputValue(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+    function resolvePeriodRange() {
+      const period = document.getElementById("periodSelect").value;
+      const now = new Date();
+      if (period === "this_month") {
+        return {
+          from: toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1)),
+          to: toDateInputValue(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+        };
+      }
+      if (period === "last_month") {
+        return {
+          from: toDateInputValue(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+          to: toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 0)),
+        };
+      }
+      if (period === "all_time") return { from: "", to: "" };
+      // تحديد يدوي: من حقلي التاريخ مباشرة
+      return {
+        from: document.getElementById("filterDateFrom").value,
+        to: document.getElementById("filterDateTo").value,
+      };
+    }
+
     function getFilteredVisits() {
       const query = document.getElementById("visitSearchInput").value.trim().toLowerCase();
       const filterAreaId = document.getElementById("filterArea").value;
       const filterStatusId = document.getElementById("filterStatus").value;
       const filterInspectorId = document.getElementById("filterInspector").value;
-      const dateFrom = document.getElementById("filterDateFrom").value; // YYYY-MM-DD أو فاضي
-      const dateTo = document.getElementById("filterDateTo").value;
+      const { from: dateFrom, to: dateTo } = resolvePeriodRange();
 
       return allVisits.filter((v) => {
         if (filterAreaId && v.area_id !== filterAreaId) return false;
@@ -501,6 +617,62 @@
         return true;
       });
     }
+
+    // نص يوضّح الفلاتر الفعّالة وقت التصدير، يُكتب أعلى ورقة "ملخص" بالإكسل
+    function buildFilterSummary() {
+      const periodLabels = { this_month: "هذا الشهر", last_month: "الشهر الماضي", all_time: "كل الوقت" };
+      const periodValue = document.getElementById("periodSelect").value;
+      let period;
+      if (periodValue === "custom") {
+        const { from, to } = resolvePeriodRange();
+        period = from || to ? `${(from || "—").replaceAll("-", "/")} – ${(to || "—").replaceAll("-", "/")}` : "الكل";
+      } else {
+        period = periodLabels[periodValue] || "الكل";
+      }
+
+      const areaId = document.getElementById("filterArea").value;
+      const areaName = areaId ? (areas.find((a) => a.id === areaId) || {}).name || "—" : "الكل";
+
+      const statusId = document.getElementById("filterStatus").value;
+      const statusName = statusId ? (statuses.find((s) => s.id === statusId) || {}).name || "—" : "الكل";
+
+      const inspectorId = document.getElementById("filterInspector").value;
+      const inspectorOpt = inspectorId ? [...document.getElementById("filterInspector").options].find((o) => o.value === inspectorId) : null;
+      const inspectorName = inspectorId ? (inspectorOpt ? inspectorOpt.textContent : "—") : "الكل";
+
+      return `الفترة: ${period} | النطاق: ${areaName} | الحالة: ${statusName} | المفتش: ${inspectorName}`;
+    }
+
+    document.getElementById("exportBtn").addEventListener("click", async () => {
+      const statusEl = document.getElementById("exportStatus");
+      const btn = document.getElementById("exportBtn");
+      const visitsToExport = getFilteredVisits(); // نصدّر بالضبط اللي ظاهر بالقائمة بعد الفلترة
+      if (visitsToExport.length === 0) {
+        alert("لا توجد زيارات مطابقة للفلترة الحالية لتصديرها");
+        return;
+      }
+      btn.disabled = true;
+      statusEl.style.display = "block";
+      statusEl.className = "export-status";
+      statusEl.textContent = "جارٍ تجهيز ملف التصدير...";
+      try {
+        const tool = { name: document.getElementById("toolTitle").textContent };
+        const includePhotos = document.getElementById("includePhotosToggle").checked;
+        const filterSummary = buildFilterSummary();
+        await exportVisitsToZip(tool, visitsToExport, statuses, areas, includePhotos, filterSummary, (done, total) => {
+          statusEl.textContent = total > 0 ? `جارٍ تجهيز الصور... (${done} من ${total})` : "جارٍ تجهيز ملف التصدير...";
+        });
+        statusEl.textContent = "تم التصدير ✓";
+        setTimeout(() => {
+          if (statusEl.textContent === "تم التصدير ✓") statusEl.style.display = "none";
+        }, 3000);
+      } catch (e) {
+        statusEl.className = "export-status error";
+        statusEl.textContent = "تعذّر التصدير: " + (e.message || "");
+      } finally {
+        btn.disabled = false;
+      }
+    });
 
     function renderMonths() {
       const filtered = getFilteredVisits();
@@ -567,16 +739,10 @@
     document.getElementById("filterInspector").addEventListener("change", renderMonths);
     document.getElementById("filterDateFrom").addEventListener("change", renderMonths);
     document.getElementById("filterDateTo").addEventListener("change", renderMonths);
-
-    // الفلتر الافتراضي: الشهر الميلادي الحالي بالكامل
-    function setDefaultDateRange() {
-      const now = new Date();
-      const first = new Date(now.getFullYear(), now.getMonth(), 1);
-      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const toInputValue = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      document.getElementById("filterDateFrom").value = toInputValue(first);
-      document.getElementById("filterDateTo").value = toInputValue(last);
-    }
+    document.getElementById("periodSelect").addEventListener("change", () => {
+      document.getElementById("customDateRow").style.display = document.getElementById("periodSelect").value === "custom" ? "flex" : "none";
+      renderMonths();
+    });
 
     // -------------------------------------------------
     // نافذة تفاصيل الزيارة (+ حذف، للمشرف فقط)
@@ -587,6 +753,13 @@
       document.getElementById("detailTitle").textContent = visit.establishment_name;
       document.getElementById("detailInspector").textContent = inspectorName(visit);
       document.getElementById("detailStatus").textContent = visit.visit_statuses ? visit.visit_statuses.name : "—";
+      const lastVisitRow = document.getElementById("detailLastVisitDateRow");
+      if (visit.last_visit_date) {
+        document.getElementById("detailLastVisitDate").textContent = visit.last_visit_date.replaceAll("-", "/");
+        lastVisitRow.style.display = "flex";
+      } else {
+        lastVisitRow.style.display = "none";
+      }
       document.getElementById("detailArea").textContent = visit.visit_areas ? visit.visit_areas.name : "—";
       document.getElementById("detailLicense").textContent = visit.license_number || "—";
       document.getElementById("detailStreet").textContent = visit.street || "—";
@@ -612,17 +785,27 @@
         const url = await getVisitPhotoSignedUrl(visit.license_photo_path);
         if (url) photos.push(url);
       }
-      photosRow.innerHTML = photos.length
-        ? photos.map((u) => `<div class="case-image-slot"><img src="${escapeHtml(u)}" alt="" /></div>`).join("")
-        : '<span style="font-size:13px;color:var(--text-muted)">لا توجد صور</span>';
+      photosRow.innerHTML = "";
+      if (photos.length === 0) {
+        photosRow.innerHTML = '<span style="font-size:13px;color:var(--text-muted)">لا توجد صور</span>';
+      } else {
+        photos.forEach((url) => {
+          const slot = document.createElement("div");
+          slot.className = "case-image-slot";
+          slot.style.cursor = "zoom-in";
+          slot.innerHTML = `<img src="${escapeHtml(url)}" alt="" />`;
+          slot.addEventListener("click", () => openLightbox(url));
+          photosRow.appendChild(slot);
+        });
+      }
 
       document.getElementById("visitDetailModal").style.display = "flex";
     }
     document.getElementById("closeDetailBtn").addEventListener("click", () => {
       document.getElementById("visitDetailModal").style.display = "none";
     });
-    document.getElementById("editVisitBtn").addEventListener("click", () => {
-      if (detailVisit) openEditVisit(detailVisit);
+    document.getElementById("editVisitBtn").addEventListener("click", async () => {
+      if (detailVisit) await openEditVisit(detailVisit);
     });
     document.getElementById("deleteVisitBtn").addEventListener("click", async () => {
       if (!detailVisit) return;
@@ -636,190 +819,6 @@
         renderMonths();
       } catch (e) {
         alert(e.message || "تعذر حذف الزيارة");
-      }
-    });
-
-    // -------------------------------------------------
-    // نافذة الإعدادات: إدارة الحالات والنطاقات
-    // -------------------------------------------------
-    const settingsModal = document.getElementById("settingsModal");
-    const settingsError = document.getElementById("settingsError");
-
-    function renderSettingsLists() {
-      const statusesBox = document.getElementById("statusesList");
-      statusesBox.innerHTML = "";
-      statuses.forEach((s) => {
-        const row = document.createElement("div");
-        row.className = "type-row";
-        row.innerHTML = `<span class="type-name">${escapeHtml(s.name)}</span>`;
-        const actions = document.createElement("div");
-        actions.className = "type-actions";
-        const editBtn = document.createElement("button");
-        editBtn.className = "secondary";
-        editBtn.textContent = "تعديل";
-        editBtn.addEventListener("click", async () => {
-          const input = prompt("اسم الحالة:", s.name);
-          if (input === null || !input.trim() || input.trim() === s.name) return;
-          try {
-            const updated = await updateVisitStatus(s.id, input.trim());
-            Object.assign(s, updated);
-            renderSettingsLists();
-          } catch (e) {
-            settingsError.textContent = e.message || "تعذر التعديل";
-          }
-        });
-        const delBtn = document.createElement("button");
-        delBtn.className = "danger";
-        delBtn.textContent = "حذف";
-        delBtn.addEventListener("click", async () => {
-          if (!confirm(`حذف حالة "${s.name}"؟ أي زيارة مرتبطة بها تبقى محفوظة بدون حالة.`)) return;
-          try {
-            await deleteVisitStatus(s.id);
-            statuses = statuses.filter((x) => x.id !== s.id);
-            renderSettingsLists();
-          } catch (e) {
-            settingsError.textContent = e.message || "تعذر الحذف";
-          }
-        });
-        actions.appendChild(editBtn);
-        actions.appendChild(delBtn);
-        row.appendChild(actions);
-        statusesBox.appendChild(row);
-      });
-
-      const areasBox = document.getElementById("areasList");
-      areasBox.innerHTML = "";
-      areas.forEach((a) => {
-        const row = document.createElement("div");
-        row.className = "type-row";
-        row.innerHTML = `<span class="type-name">${escapeHtml(a.name)}</span>`;
-        const actions = document.createElement("div");
-        actions.className = "type-actions";
-        const editBtn = document.createElement("button");
-        editBtn.className = "secondary";
-        editBtn.textContent = "تعديل";
-        editBtn.addEventListener("click", async () => {
-          const input = prompt("اسم النطاق:", a.name);
-          if (input === null || !input.trim() || input.trim() === a.name) return;
-          try {
-            const updated = await updateVisitArea(a.id, input.trim());
-            Object.assign(a, updated);
-            renderSettingsLists();
-          } catch (e) {
-            settingsError.textContent = e.message || "تعذر التعديل";
-          }
-        });
-        const delBtn = document.createElement("button");
-        delBtn.className = "danger";
-        delBtn.textContent = "حذف";
-        delBtn.addEventListener("click", async () => {
-          if (!confirm(`حذف نطاق "${a.name}"؟ أي زيارة مرتبطة به تبقى محفوظة بدون نطاق.`)) return;
-          try {
-            await deleteVisitArea(a.id);
-            areas = areas.filter((x) => x.id !== a.id);
-            renderSettingsLists();
-          } catch (e) {
-            settingsError.textContent = e.message || "تعذر الحذف";
-          }
-        });
-        actions.appendChild(editBtn);
-        actions.appendChild(delBtn);
-        row.appendChild(actions);
-        areasBox.appendChild(row);
-      });
-    }
-
-    document.getElementById("settingsBtn").addEventListener("click", () => {
-      settingsError.textContent = "";
-      document.getElementById("newStatusName").value = "";
-      document.getElementById("newAreaName").value = "";
-      renderSettingsLists();
-      settingsModal.style.display = "flex";
-    });
-    document.getElementById("closeSettingsBtn").addEventListener("click", () => {
-      settingsModal.style.display = "none";
-      // الأسماء ممكن تغيّرت — نحدّث قوائم الاختيار بالنموذج والفلاتر
-      fillSelect(document.getElementById("visitStatus"), statuses, null);
-      fillSelect(document.getElementById("visitArea"), areas, null);
-      fillSelect(document.getElementById("filterStatus"), statuses, "كل الحالات");
-      fillSelect(document.getElementById("filterArea"), areas, "كل النطاقات");
-      renderMonths();
-    });
-    document.getElementById("addStatusBtn").addEventListener("click", async () => {
-      const name = document.getElementById("newStatusName").value.trim();
-      if (!name) return;
-      try {
-        const created = await addVisitStatus(toolId, name);
-        statuses.push(created);
-        document.getElementById("newStatusName").value = "";
-        renderSettingsLists();
-      } catch (e) {
-        settingsError.textContent = e.message || "تعذر الإضافة";
-      }
-    });
-    document.getElementById("addAreaBtn").addEventListener("click", async () => {
-      const name = document.getElementById("newAreaName").value.trim();
-      if (!name) return;
-      try {
-        const created = await addVisitArea(toolId, name);
-        areas.push(created);
-        document.getElementById("newAreaName").value = "";
-        renderSettingsLists();
-      } catch (e) {
-        settingsError.textContent = e.message || "تعذر الإضافة";
-      }
-    });
-
-    // -------------------------------------------------
-    // تصدير Excel — المشرف يصدّر كل الزيارات
-    // -------------------------------------------------
-    // نص يوضّح الفلاتر الفعّالة وقت التصدير، يُكتب أعلى ورقة "ملخص" بالإكسل
-    function buildFilterSummary() {
-      const dateFrom = document.getElementById("filterDateFrom").value;
-      const dateTo = document.getElementById("filterDateTo").value;
-      const period = dateFrom || dateTo ? `${(dateFrom || "—").replaceAll("-", "/")} – ${(dateTo || "—").replaceAll("-", "/")}` : "الكل";
-
-      const areaId = document.getElementById("filterArea").value;
-      const areaName = areaId ? (areas.find((a) => a.id === areaId) || {}).name || "—" : "الكل";
-
-      const statusId = document.getElementById("filterStatus").value;
-      const statusName = statusId ? (statuses.find((s) => s.id === statusId) || {}).name || "—" : "الكل";
-
-      const inspectorId = document.getElementById("filterInspector").value;
-      const inspectorOpt = inspectorId ? [...document.getElementById("filterInspector").options].find((o) => o.value === inspectorId) : null;
-      const inspectorName = inspectorId ? (inspectorOpt ? inspectorOpt.textContent : "—") : "الكل";
-
-      return `الفترة: ${period} | النطاق: ${areaName} | الحالة: ${statusName} | المفتش: ${inspectorName}`;
-    }
-
-    document.getElementById("exportBtn").addEventListener("click", async () => {
-      const statusEl = document.getElementById("exportStatus");
-      const btn = document.getElementById("exportBtn");
-      const visitsToExport = getFilteredVisits(); // نصدّر بالضبط اللي ظاهر بالقائمة بعد الفلترة
-      if (visitsToExport.length === 0) {
-        alert("لا توجد زيارات مطابقة للفلترة الحالية لتصديرها");
-        return;
-      }
-      btn.disabled = true;
-      statusEl.style.display = "block";
-      statusEl.className = "export-status";
-      statusEl.textContent = "جارٍ تجهيز ملف التصدير...";
-      try {
-        const tool = { name: document.getElementById("toolTitle").textContent };
-        const includePhotos = document.getElementById("includePhotosToggle").checked;
-        const filterSummary = buildFilterSummary();
-        await exportVisitsToZip(tool, visitsToExport, statuses, areas, includePhotos, filterSummary, (done, total) => {
-          statusEl.textContent = total > 0 ? `جارٍ تجهيز الصور... (${done} من ${total})` : "جارٍ تجهيز ملف التصدير...";
-        });
-        statusEl.textContent = "تم التصدير ✓";
-        setTimeout(() => {
-          if (statusEl.textContent === "تم التصدير ✓") statusEl.style.display = "none";
-        }, 3000);
-      } catch (e) {
-        statusEl.className = "export-status error";
-        statusEl.textContent = "تعذّر التصدير: " + (e.message || "");
-      } finally {
-        btn.disabled = false;
       }
     });
 
@@ -862,7 +861,6 @@
         filterInspector.appendChild(opt);
       });
 
-      setDefaultDateRange();
       document.getElementById("visitTabsWrap").style.display = "block";
       showList();
     })();

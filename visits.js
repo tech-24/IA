@@ -20,32 +20,6 @@ async function fetchVisitStatuses(toolId) {
   return data;
 }
 
-async function addVisitStatus(toolId, name) {
-  const { data, error } = await supabaseClient
-    .from("visit_statuses")
-    .insert({ tool_id: toolId, name })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-async function updateVisitStatus(id, name) {
-  const { data, error } = await supabaseClient
-    .from("visit_statuses")
-    .update({ name })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-async function deleteVisitStatus(id) {
-  const { error } = await supabaseClient.from("visit_statuses").delete().eq("id", id);
-  if (error) throw error;
-}
-
 // ==================================================================
 // نطاقات الزيارة (خاصة بكل أداة زيارات على حدة)
 // ==================================================================
@@ -58,32 +32,6 @@ async function fetchVisitAreas(toolId) {
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data;
-}
-
-async function addVisitArea(toolId, name) {
-  const { data, error } = await supabaseClient
-    .from("visit_areas")
-    .insert({ tool_id: toolId, name })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-async function updateVisitArea(id, name) {
-  const { data, error } = await supabaseClient
-    .from("visit_areas")
-    .update({ name })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-async function deleteVisitArea(id) {
-  const { error } = await supabaseClient.from("visit_areas").delete().eq("id", id);
-  if (error) throw error;
 }
 
 // ==================================================================

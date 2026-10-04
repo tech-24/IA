@@ -55,10 +55,10 @@ async function fetchCases(itemId) {
 // إضافة حالة جديدة (بدون صور بعد — الصور تُضاف بعد إنشاء الحالة)
 // note: ملاحظة يكتبها المشرف فقط، تظهر تحت الصور بواجهة المفتش
 // -------------------------------------------------
-async function addCase({ item_id, name, monitoring_method, note }) {
+async function addCase({ item_id, name, monitoring_method, note, warning }) {
   const { data, error } = await supabaseClient
     .from("cases")
-    .insert({ item_id, name, monitoring_method, note })
+    .insert({ item_id, name, monitoring_method, note, warning })
     .select("*, case_images(*)")
     .single();
   if (error) throw error;
@@ -68,10 +68,10 @@ async function addCase({ item_id, name, monitoring_method, note }) {
 // -------------------------------------------------
 // تعديل بيانات حالة موجودة (الاسم وشرح طريقة الرصد والملاحظة)
 // -------------------------------------------------
-async function updateCase(id, { name, monitoring_method, note }) {
+async function updateCase(id, { name, monitoring_method, note, warning }) {
   const { data, error } = await supabaseClient
     .from("cases")
-    .update({ name, monitoring_method, note })
+    .update({ name, monitoring_method, note, warning })
     .eq("id", id)
     .select("*, case_images(*)")
     .single();

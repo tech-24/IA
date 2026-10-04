@@ -84,10 +84,19 @@
         <input type="file" id="caseImageInput" accept="image/*" style="display:none" />
       </div>
 
-      <!-- ملاحظة يكتبها المشرف فقط، تظهر ثابتة للمفتش تحت الصور -->
+      <!-- ملاحظة يكتبها المشرف فقط، تظهر ثابتة للمفتش تحت الصور — إجبارية -->
       <div class="field">
-        <label for="caseNote">ملاحظة (اختياري)</label>
+        <label for="caseNote">ملاحظة</label>
         <textarea id="caseNote"></textarea>
+      </div>
+
+      <!-- تنبيه اختياري، منفصل تمامًا عن الملاحظة -->
+      <div class="field">
+        <label for="caseWarning" style="display:flex;align-items:center;gap:6px">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+          تنبيه (اختياري)
+        </label>
+        <textarea id="caseWarning"></textarea>
       </div>
 
       <div class="error" id="caseModalError"></div>
@@ -192,6 +201,7 @@
       document.getElementById("caseName").value = "";
       document.getElementById("caseMethod").value = "";
       document.getElementById("caseNote").value = "";
+      document.getElementById("caseWarning").value = "";
       caseModalError.textContent = "";
       caseModalSuccess.textContent = "";
       imagesSection.style.display = "none"; // ما فيه حالة بعد، ما نقدر نرفع صور
@@ -205,6 +215,7 @@
       document.getElementById("caseName").value = c.name;
       document.getElementById("caseMethod").value = c.monitoring_method || "";
       document.getElementById("caseNote").value = c.note || "";
+      document.getElementById("caseWarning").value = c.warning || "";
       caseModalError.textContent = "";
       caseModalSuccess.textContent = "";
       imagesSection.style.display = "block";
@@ -281,8 +292,13 @@
       const name = document.getElementById("caseName").value.trim();
       const monitoring_method = document.getElementById("caseMethod").value.trim();
       const note = document.getElementById("caseNote").value.trim();
+      const warning = document.getElementById("caseWarning").value.trim() || null;
       if (!name) {
         caseModalError.textContent = "اكتب اسم الحالة";
+        return;
+      }
+      if (!note) {
+        caseModalError.textContent = "اكتب الملاحظة";
         return;
       }
 
@@ -290,12 +306,12 @@
       saveBtn.disabled = true; // يمنع تكرار الضغط والتسبب بإضافة الحالة أكثر من مرة
       try {
         if (editingCaseId) {
-          const updated = await updateCase(editingCaseId, { name, monitoring_method, note });
+          const updated = await updateCase(editingCaseId, { name, monitoring_method, note, warning });
           const index = allCases.findIndex((c) => c.id === editingCaseId);
           allCases[index] = { ...updated, case_images: allCases[index].case_images };
           showSuccess("تم الحفظ ✓");
         } else {
-          const created = await addCase({ item_id: itemId, name, monitoring_method, note });
+          const created = await addCase({ item_id: itemId, name, monitoring_method, note, warning });
           allCases.push(created);
           editingCaseId = created.id;
           // نفتح قسم الصور فورًا بنفس النافذة بعد إنشاء الحالة

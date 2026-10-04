@@ -1170,3 +1170,11 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 
 .location-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
 .location-row .location-hint { margin-bottom: 0; }
+
+/* صندوق التنبيه — منفصل تمامًا عن الملاحظة، يظهر فوقها لو موجود */
+.case-warning-box {
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}

@@ -1237,3 +1237,8 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   font-weight: 700;
   font-size: 14px;
 }
+
+/* حالة وحيدة مفتوحة دائمًا: بدون سهم، والرأس غير قابل للضغط */
+.case-acc.locked .case-acc-chevron { display: none; }
+.case-acc.locked .case-acc-head { cursor: default; opacity: 1; }
+.case-acc.locked .case-acc-head:disabled { opacity: 1; color: var(--text); }

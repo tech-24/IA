@@ -181,6 +181,16 @@ function buildCaseAccordion(c, opts) {
     body.appendChild(actions);
   }
 
+  // ---- حالة وحيدة: تبقى مفتوحة دائمًا بدون سهم ولا طي (opts.alwaysOpen) ----
+  if (opts.alwaysOpen) {
+    row.classList.add("open", "locked");
+    head.setAttribute("aria-expanded", "true");
+    head.disabled = true;
+    row.appendChild(head);
+    row.appendChild(body);
+    return row;
+  }
+
   // ---- الفتح والإغلاق: صف واحد مفتوح في كل مرة ----
   head.addEventListener("click", () => {
     const willOpen = !row.classList.contains("open");

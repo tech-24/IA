@@ -139,7 +139,8 @@
     function renderCases() {
       grid.innerHTML = "";
 
-      allCases.forEach((c) => grid.appendChild(buildCaseAccordion(c, { onEdit: openEditCaseModal })));
+      const single = allCases.length === 1; // حالة وحيدة: تُعرض مفتوحة دائمًا
+      allCases.forEach((c) => grid.appendChild(buildCaseAccordion(c, { onEdit: openEditCaseModal, alwaysOpen: single })));
 
       const addBtn = document.createElement("button");
       addBtn.type = "button";

@@ -89,7 +89,8 @@
         return;
       }
 
-      allCases.forEach((c) => grid.appendChild(buildCaseAccordion(c)));
+      const single = allCases.length === 1; // حالة وحيدة: تُعرض مفتوحة دائمًا
+      allCases.forEach((c) => grid.appendChild(buildCaseAccordion(c, { alwaysOpen: single })));
     }
 
     // ==================================================================

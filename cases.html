@@ -55,7 +55,7 @@
     <div class="breadcrumb">البند</div>
     <h2 id="itemTitle">جارٍ التحميل...</h2>
 
-    <div class="categories-grid" id="casesGrid" style="margin-top:20px"></div>
+    <div class="case-acc-list" id="casesGrid"></div>
   </div>
 
   <!-- ==================== نافذة إضافة/تعديل حالة ====================
@@ -120,6 +120,7 @@
   <script src="image-utils.js"></script>
   <script src="items.js"></script>
   <script src="cases.js"></script>
+  <script src="case-accordion.js"></script>
   <script>
     // ==================================================================
     // قراءة رقم البند من رابط الصفحة (?item_id=...)
@@ -138,34 +139,14 @@
     function renderCases() {
       grid.innerHTML = "";
 
-      allCases.forEach((c) => {
-        const card = document.createElement("div");
-        card.className = "case-card";
-        card.addEventListener("click", () => openEditCaseModal(c));
+      allCases.forEach((c) => grid.appendChild(buildCaseAccordion(c, { onEdit: openEditCaseModal })));
 
-        const thumb = document.createElement("div");
-        thumb.className = "case-thumb";
-        const firstImage = c.case_images && c.case_images[0];
-        if (firstImage) {
-          thumb.innerHTML = `<img src="${escapeHtml(firstImage.image_url)}" alt="${escapeHtml(c.name)}" />`;
-        } else {
-          thumb.innerHTML = `<span class="icon-text">❔</span>`;
-        }
-
-        const title = document.createElement("div");
-        title.className = "case-title";
-        title.textContent = c.name;
-
-        card.appendChild(thumb);
-        card.appendChild(title);
-        grid.appendChild(card);
-      });
-
-      const addCard = document.createElement("div");
-      addCard.className = "add-category-card";
-      addCard.textContent = "+ إضافة حالة";
-      addCard.addEventListener("click", openAddCaseModal);
-      grid.appendChild(addCard);
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "case-acc-add";
+      addBtn.textContent = "+ إضافة حالة";
+      addBtn.addEventListener("click", openAddCaseModal);
+      grid.appendChild(addBtn);
     }
 
     async function loadCases() {

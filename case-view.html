@@ -53,7 +53,7 @@
 
   <div class="main" style="padding-bottom:8px">
     <h2 id="itemTitle" style="margin-top:16px"></h2>
-    <div class="categories-grid" id="casesGrid" style="margin-top:20px"></div>
+    <div class="case-acc-list" id="casesGrid"></div>
   </div>
   <div class="bottom-nav-spacer"></div>
 
@@ -64,58 +64,11 @@
     <a href="tools.html"><span class="nav-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span>أدوات مساعدة</a>
   </nav>
 
-  <!-- ==================== نافذة تكبير الصورة ==================== -->
-  <div class="lightbox-overlay" id="lightboxOverlay" style="display:none">
-    <button id="lightboxClose" class="lightbox-close" aria-label="إغلاق">
-      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-    </button>
-    <img id="lightboxImg" src="" alt="" />
-  </div>
-
-  <!-- ==================== نافذة عرض تفاصيل الحالة (قراءة فقط) ==================== -->
-  <div class="modal-overlay" id="caseDetailModal" style="display:none">
-    <div class="modal-box">
-      <h3 id="caseDetailTitle"></h3>
-
-      <div class="case-images-row" id="caseDetailImages"></div>
-
-      <div id="caseDetailWarningWrap" class="case-warning-box" style="display:none;margin-top:10px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
-          <strong style="color:#B91C1C;font-size:14px">تنبيه</strong>
-        </div>
-        <p id="caseDetailWarning" style="color:#7F1D1D;font-size:14px;line-height:1.8;white-space:pre-wrap;margin:0"></p>
-      </div>
-
-      <div id="caseDetailNoteWrap" style="display:none;margin-top:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-          <label style="font-size:13px;color:var(--text-muted);font-weight:600">ملاحظة</label>
-          <button type="button" id="copyNoteBtn" class="secondary copy-note-btn">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            نسخ
-          </button>
-        </div>
-        <p id="caseDetailNote" style="font-size:14px;line-height:1.8;white-space:pre-wrap"></p>
-        <span id="copyNoteConfirm" style="display:none;font-size:12px;color:#16a34a;font-weight:600">تم النسخ</span>
-      </div>
-
-      <div style="margin-top:10px">
-        <label style="font-size:13px;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px">
-          طريقة الرصد الصحيحة
-        </label>
-        <p id="caseDetailMethod" style="font-size:14px;line-height:1.8;white-space:pre-wrap"></p>
-      </div>
-
-      <div class="modal-actions">
-        <button id="closeCaseDetailBtn" class="secondary" style="width:100%">إغلاق</button>
-      </div>
-    </div>
-  </div>
-
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="items.js"></script>
   <script src="cases.js"></script>
+  <script src="case-accordion.js"></script>
   <script src="circulars.js"></script>
   <script src="bottom-nav.js"></script>
   <script>
@@ -136,153 +89,8 @@
         return;
       }
 
-      allCases.forEach((c) => {
-        const card = document.createElement("div");
-        card.className = "case-card";
-        card.addEventListener("click", () => openCaseDetail(c));
-
-        const thumb = document.createElement("div");
-        thumb.className = "case-thumb";
-        const firstImage = c.case_images && c.case_images[0];
-        thumb.innerHTML = firstImage
-          ? `<img src="${escapeHtml(firstImage.image_url)}" alt="${escapeHtml(c.name)}" />`
-          : `<span class="icon-text">❔</span>`;
-
-        const title = document.createElement("div");
-        title.className = "case-title";
-        title.textContent = c.name;
-
-        card.appendChild(thumb);
-        card.appendChild(title);
-        grid.appendChild(card);
-      });
+      allCases.forEach((c) => grid.appendChild(buildCaseAccordion(c)));
     }
-
-    // -------------------------------------------------
-    // فتح نافذة تفاصيل الحالة: الصور كاملة + شرح طريقة الرصد
-    // -------------------------------------------------
-    const caseDetailModal = document.getElementById("caseDetailModal");
-
-    function openCaseDetail(c) {
-      document.getElementById("caseDetailTitle").textContent = c.name;
-      document.getElementById("caseDetailMethod").textContent =
-        c.monitoring_method || "لا يوجد شرح مضاف لهذه الحالة.";
-
-      // قسم التنبيه يظهر بس لو المشرف كتب فيه شي فعلاً — منفصل تمامًا عن الملاحظة
-      const warningWrap = document.getElementById("caseDetailWarningWrap");
-      if (c.warning && c.warning.trim()) {
-        document.getElementById("caseDetailWarning").textContent = c.warning;
-        warningWrap.style.display = "block";
-      } else {
-        warningWrap.style.display = "none";
-      }
-
-      // قسم الملاحظة يظهر بس لو المشرف كتب فيه شي فعلاً
-      const noteWrap = document.getElementById("caseDetailNoteWrap");
-      if (c.note && c.note.trim()) {
-        document.getElementById("caseDetailNote").textContent = c.note;
-        noteWrap.style.display = "block";
-      } else {
-        noteWrap.style.display = "none";
-      }
-
-      const imagesRow = document.getElementById("caseDetailImages");
-      imagesRow.innerHTML = "";
-      const images = c.case_images || [];
-      if (images.length === 0) {
-        imagesRow.innerHTML = '<div class="empty-hint" style="padding:0">لا توجد صور لهذه الحالة.</div>';
-      } else {
-        images.forEach((img, i) => {
-          const slot = document.createElement("div");
-          slot.className = "case-image-slot";
-          slot.style.cursor = "zoom-in";
-          slot.innerHTML = `<img src="${escapeHtml(img.image_url)}" alt="" />`;
-          slot.addEventListener("click", () => openLightbox(images, i));
-          imagesRow.appendChild(slot);
-        });
-      }
-
-      caseDetailModal.style.display = "flex";
-    }
-
-    document.getElementById("closeCaseDetailBtn").addEventListener("click", () => {
-      caseDetailModal.style.display = "none";
-    });
-
-    // -------------------------------------------------
-    // تكبير الصورة (Lightbox): الضغط على أي صورة بالحالة يفتحها بملء الشاشة
-    // مع التنقل بالسحب يمين/يسار بين صور نفس الحالة
-    // -------------------------------------------------
-    const lightboxOverlay = document.getElementById("lightboxOverlay");
-    const lightboxImg = document.getElementById("lightboxImg");
-    let lightboxImages = [];
-    let lightboxIndex = 0;
-
-    function showLightboxImage() {
-      lightboxImg.src = lightboxImages[lightboxIndex].image_url;
-    }
-    function openLightbox(images, index) {
-      lightboxImages = images;
-      lightboxIndex = index;
-      showLightboxImage();
-      lightboxOverlay.style.display = "flex";
-    }
-    function closeLightbox() {
-      lightboxOverlay.style.display = "none";
-      lightboxImg.src = "";
-    }
-    document.getElementById("lightboxClose").addEventListener("click", closeLightbox);
-    // الضغط على أي مكان فاضي بالخلفية (مو الصورة نفسها) يسكّر أيضًا
-    lightboxOverlay.addEventListener("click", (e) => {
-      if (e.target === lightboxOverlay) closeLightbox();
-    });
-
-    // السحب: يسار = الصورة التالية، يمين = الصورة السابقة (بدون التفاف من الأخيرة للأولى)
-    let swipeStartX = null;
-    lightboxOverlay.addEventListener("pointerdown", (e) => {
-      swipeStartX = e.clientX;
-    });
-    lightboxOverlay.addEventListener("pointerup", (e) => {
-      if (swipeStartX === null) return;
-      const dx = e.clientX - swipeStartX;
-      swipeStartX = null;
-      const threshold = 40;
-      if (dx <= -threshold && lightboxIndex < lightboxImages.length - 1) {
-        lightboxIndex++;
-        showLightboxImage();
-      } else if (dx >= threshold && lightboxIndex > 0) {
-        lightboxIndex--;
-        showLightboxImage();
-      }
-    });
-
-    // -------------------------------------------------
-    // نسخ نص الملاحظة، مع رسالة "تم النسخ" مؤقتة
-    // -------------------------------------------------
-    let copyConfirmTimer = null;
-    document.getElementById("copyNoteBtn").addEventListener("click", async () => {
-      const text = document.getElementById("caseDetailNote").textContent;
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch (e) {
-        // بعض المتصفحات القديمة أو بدون HTTPS ما تدعم الحافظة — نستخدم طريقة بديلة
-        const helper = document.createElement("textarea");
-        helper.value = text;
-        helper.style.position = "fixed";
-        helper.style.opacity = "0";
-        document.body.appendChild(helper);
-        helper.select();
-        document.execCommand("copy");
-        document.body.removeChild(helper);
-      }
-
-      const confirmEl = document.getElementById("copyNoteConfirm");
-      confirmEl.style.display = "inline";
-      clearTimeout(copyConfirmTimer);
-      copyConfirmTimer = setTimeout(() => {
-        confirmEl.style.display = "none";
-      }, 1800);
-    });
 
     // ==================================================================
     // تشغيل الصفحة

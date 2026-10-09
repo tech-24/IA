@@ -296,10 +296,38 @@
     });
 
     // -------------------------------------------------
-    // مربع الصورة: الضغط على المربع نفسه (فاضي أو فيه صورة) يفتح نافذة اختيار النظام
-    // (بدون capture، فالمتصفح/النظام يعرض خيار الكاميرا والمعرض مع بعض تلقائيًا)
+    // مربع الصورة: الضغط على المربع نفسه (فاضي أو فيه صورة) يعرض خيارين:
+    //   "التقاط صورة": تفتح الكاميرا مباشرة وتُختم الصورة بالتاريخ والوقت والعنوان
+    //   "اختيار من المعرض": تُرفع كما هي بدون ختم
     // × تحذف الصورة (المختارة حديثًا أو المحفوظة مسبقًا لو كنا بوضع تعديل)
     // -------------------------------------------------
+
+    // موقع الجهاز لحظة التصوير: من تتبّع GPS الجاري (تسجيل جديد)، أو قراءة سريعة (وضع التعديل)
+    function getStampPosition() {
+      return new Promise((resolve) => {
+        if (editingVisitId === null && locationWatchId !== null && capturedLat !== null && capturedLng !== null) {
+          return resolve({ lat: capturedLat, lng: capturedLng });
+        }
+        if (!navigator.geolocation) return resolve(null);
+        navigator.geolocation.getCurrentPosition(
+          (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 2500, maximumAge: 30000 }
+        );
+      });
+    }
+
+    // يختم الصورة الملتقطة؛ عند أي فشل نرجع الصورة الأصلية بدون ختم ولا نوقف التسجيل
+    async function stampCameraPhoto(file) {
+      try {
+        const when = new Date(); // لحظة الالتقاط
+        const pos = await getStampPosition();
+        const addressLines = pos ? await fetchAddressLines(pos.lat, pos.lng) : [];
+        return await stampPhoto(file, [formatStampDate(when), ...addressLines]);
+      } catch (e) {
+        return file;
+      }
+    }
     function setupPhotoBox(boxId, inputId) {
       const box = document.getElementById(boxId);
       const input = document.getElementById(inputId);
@@ -334,13 +362,34 @@
         }
       }
 
-      box.addEventListener("click", () => input.click());
+      // حقل مخفي للكاميرا (capture) يفتح الكاميرا مباشرة، والحقل الأصلي للمعرض
+      const cameraInput = document.createElement("input");
+      cameraInput.type = "file";
+      cameraInput.accept = "image/*";
+      cameraInput.setAttribute("capture", "environment");
+      cameraInput.style.display = "none";
+      document.body.appendChild(cameraInput);
+
+      box.addEventListener("click", async () => {
+        const source = await pickPhotoSource();
+        if (source === "camera") cameraInput.click();
+        else if (source === "gallery") input.click();
+      });
       input.addEventListener("change", () => {
         if (input.files[0]) {
           file = input.files[0];
           clearedExisting = false;
           render();
         }
+      });
+      cameraInput.addEventListener("change", async () => {
+        const captured = cameraInput.files[0];
+        cameraInput.value = "";
+        if (!captured) return;
+        box.innerHTML = '<span class="visit-photo-placeholder" style="font-size:12px">جارٍ تجهيز الصورة...</span>';
+        file = await stampCameraPhoto(captured);
+        clearedExisting = false;
+        render();
       });
 
       return {

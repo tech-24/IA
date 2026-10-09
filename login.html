@@ -42,7 +42,7 @@
         <label for="email">البريد الإلكتروني</label>
         <input type="email" id="email" />
       </div>
-      <div class="field">
+      <div class="field" id="passwordField">
         <label for="password">كلمة المرور</label>
         <input type="password" id="password" />
       </div>
@@ -58,6 +58,9 @@
       <div class="center" style="margin-top:14px">
         <!-- زر يبدّل بين وضع "تسجيل دخول" ووضع "إنشاء حساب جديد" -->
         <button class="link-btn" id="toggleModeBtn">ليس لديك حساب؟ أنشئ حسابًا جديدًا</button>
+      </div>
+      <div class="center" style="margin-top:10px">
+        <button class="link-btn" id="forgotBtn">نسيت كلمة المرور؟</button>
       </div>
     </div>
   </div>
@@ -77,18 +80,37 @@
     const toggleModeBtn = document.getElementById("toggleModeBtn");
     const errorMsg = document.getElementById("errorMsg");
     const successMsg = document.getElementById("successMsg");
+    const forgotBtn = document.getElementById("forgotBtn");
+    const passwordField = document.getElementById("passwordField");
+
+    // يضبط الواجهة حسب الوضع: login / signup / forgot
+    function applyMode() {
+      const titles = { login: "تسجيل الدخول", signup: "إنشاء حساب جديد", forgot: "استعادة كلمة المرور" };
+      const submits = { login: "دخول", signup: "إنشاء الحساب", forgot: "إرسال رابط الاستعادة" };
+      const toggles = {
+        login: "ليس لديك حساب؟ أنشئ حسابًا جديدًا",
+        signup: "لديك حساب بالفعل؟ سجّل الدخول",
+        forgot: "العودة إلى تسجيل الدخول",
+      };
+      formTitle.textContent = titles[mode];
+      submitBtn.textContent = submits[mode];
+      toggleModeBtn.textContent = toggles[mode];
+      document.getElementById("fullNameField").style.display = mode === "signup" ? "flex" : "none";
+      passwordField.style.display = mode === "forgot" ? "none" : "flex";
+      forgotBtn.style.display = mode === "login" ? "inline" : "none";
+      errorMsg.textContent = "";
+      successMsg.textContent = "";
+    }
+
+    forgotBtn.addEventListener("click", () => {
+      mode = "forgot";
+      applyMode();
+    });
 
     // -------- الضغط على "ليس لديك حساب؟" يبدّل نصوص الواجهة بين الوضعين --------
     toggleModeBtn.addEventListener("click", () => {
       mode = mode === "login" ? "signup" : "login";
-      formTitle.textContent = mode === "login" ? "تسجيل الدخول" : "إنشاء حساب جديد";
-      submitBtn.textContent = mode === "login" ? "دخول" : "إنشاء الحساب";
-      toggleModeBtn.textContent = mode === "login"
-        ? "ليس لديك حساب؟ أنشئ حسابًا جديدًا"
-        : "لديك حساب بالفعل؟ سجّل الدخول";
-      document.getElementById("fullNameField").style.display = mode === "signup" ? "flex" : "none";
-      errorMsg.textContent = "";
-      successMsg.textContent = "";
+      applyMode();
     });
 
     // -------- الضغط على زر "دخول" / "إنشاء الحساب" --------
@@ -99,6 +121,23 @@
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
       const fullName = document.getElementById("fullName").value.trim();
+
+      // وضع استعادة كلمة المرور: رسالة موحدة دائمًا (لا نكشف هل البريد مسجل أم لا)
+      if (mode === "forgot") {
+        if (!email) {
+          errorMsg.textContent = "اكتب بريدك الإلكتروني";
+          return;
+        }
+        submitBtn.disabled = true;
+        try {
+          await requestPasswordReset(email);
+        } catch (e) {
+          // نتجاهل الخطأ عمدًا ليبقى الرد واحدًا سواء وُجد البريد أم لا
+        }
+        successMsg.textContent = "إن كان البريد مسجّلًا لدينا فستصلك رسالة تحتوي على رابط لاستعادة كلمة المرور.";
+        submitBtn.disabled = false;
+        return;
+      }
 
       // تحقق بسيط: الحقول ما تكون فاضية
       if (!email || !password) {
@@ -122,10 +161,8 @@
           successMsg.textContent = "تم إنشاء الحساب. تحقق من بريدك لتأكيد التسجيل إذا طُلب منك ذلك، ثم سجّل الدخول.";
           // بعد نجاح الإنشاء، نرجّع النموذج لوضع "تسجيل دخول"
           mode = "login";
-          formTitle.textContent = "تسجيل الدخول";
-          submitBtn.textContent = "دخول";
-          toggleModeBtn.textContent = "ليس لديك حساب؟ أنشئ حسابًا جديدًا";
-          document.getElementById("fullNameField").style.display = "none";
+          applyMode();
+          successMsg.textContent = "تم إنشاء الحساب. تحقق من بريدك لتأكيد التسجيل إذا طُلب منك ذلك، ثم سجّل الدخول.";
           document.getElementById("fullName").value = "";
         }
       } catch (e) {

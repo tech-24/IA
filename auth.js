@@ -45,6 +45,24 @@ async function signup(email, password, fullName) {
 }
 
 // -------------------------------------------------
+// طلب استعادة كلمة المرور: يرسل Supabase رابطًا للبريد يفتح صفحة reset-password.html
+// الصفحة تحدد رابط العودة تلقائيًا من موقع الصفحة الحالية (نفس المجلد)
+// -------------------------------------------------
+async function requestPasswordReset(email) {
+  const redirectTo = new URL("reset-password.html", window.location.href).href;
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) throw error;
+}
+
+// -------------------------------------------------
+// تعيين كلمة مرور جديدة للمستخدم الحالي (جلسة الاستعادة القادمة من رابط البريد)
+// -------------------------------------------------
+async function updateMyPassword(newPassword) {
+  const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
+// -------------------------------------------------
 // تسجيل خروج المستخدم الحالي، وإعادته لصفحة تسجيل الدخول
 // -------------------------------------------------
 async function logout() {

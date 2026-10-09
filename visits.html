@@ -145,7 +145,9 @@
         <div class="visit-filters-row">
           <select id="filterArea"><option value="">كل النطاقات</option></select>
           <select id="filterStatus"><option value="">كل الحالات</option></select>
-          <select id="filterInspector"><option value="">كل المفتشين</option></select>
+          <!-- القائمة الأصلية مخفية وتبقى مصدر القيمة؛ الزر يفتح نافذة فيها بحث -->
+          <select id="filterInspector" style="display:none"><option value="">كل المفتشين</option></select>
+          <button type="button" class="period-btn" id="inspectorBtn" style="min-width:110px;justify-content:space-between"></button>
         </div>
         <div id="monthsList"></div>
       </div>
@@ -717,6 +719,76 @@
     document.getElementById("filterArea").addEventListener("change", renderMonths);
     document.getElementById("filterStatus").addEventListener("change", renderMonths);
     document.getElementById("filterInspector").addEventListener("change", renderMonths);
+
+    // -------------------------------------------------
+    // فلتر المفتش بنافذة فيها خانة بحث (مفيد لما تكثر أسماء المفتشين)
+    // -------------------------------------------------
+    (function initInspectorPicker() {
+      const select = document.getElementById("filterInspector");
+      const btn = document.getElementById("inspectorBtn");
+      const chevron = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline></svg>';
+
+      function normalize(t) {
+        return String(t || "")
+          .toLowerCase()
+          .replace(/[\u064B-\u0652\u0640]/g, "")
+          .replace(/[أإآ]/g, "ا")
+          .replace(/ى/g, "ي")
+          .replace(/ة/g, "ه");
+      }
+      function updateLabel() {
+        const opt = select.options[select.selectedIndex];
+        btn.innerHTML = `<span class="insp-btn-text"></span>${chevron}`;
+        btn.querySelector(".insp-btn-text").textContent = opt ? opt.textContent : "كل المفتشين";
+      }
+
+      const overlay = document.createElement("div");
+      overlay.className = "drp-overlay";
+      overlay.style.display = "none";
+      overlay.innerHTML =
+        '<div class="drp-box" role="dialog" aria-modal="true">' +
+        '<div class="field" style="margin-bottom:10px"><input type="text" class="insp-search" placeholder="ابحث باسم المفتش..." /></div>' +
+        '<div class="insp-list"></div>' +
+        '<button type="button" class="secondary drp-close" style="width:100%;margin-top:10px">إغلاق</button>' +
+        "</div>";
+      document.body.appendChild(overlay);
+      const searchEl = overlay.querySelector(".insp-search");
+      const listEl = overlay.querySelector(".insp-list");
+
+      function render() {
+        const q = normalize(searchEl.value.trim());
+        listEl.innerHTML = "";
+        let count = 0;
+        [...select.options].forEach((opt) => {
+          if (q && opt.value && !normalize(opt.textContent).includes(q)) return;
+          if (q && !opt.value) return; // "كل المفتشين" لا تظهر أثناء البحث
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "insp-item" + (opt.value === select.value ? " active" : "");
+          item.textContent = opt.textContent;
+          item.addEventListener("click", () => {
+            select.value = opt.value;
+            select.dispatchEvent(new Event("change"));
+            updateLabel();
+            overlay.style.display = "none";
+          });
+          listEl.appendChild(item);
+          count++;
+        });
+        if (count === 0) listEl.innerHTML = '<div class="empty-hint">لا يوجد مفتش بهذا الاسم</div>';
+      }
+
+      btn.addEventListener("click", () => {
+        searchEl.value = "";
+        render();
+        overlay.style.display = "flex";
+        searchEl.focus();
+      });
+      searchEl.addEventListener("input", render);
+      overlay.querySelector(".drp-close").addEventListener("click", () => { overlay.style.display = "none"; });
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.style.display = "none"; });
+      updateLabel();
+    })();
     createDateRangePicker(document.getElementById("periodBtn"), periodState, (state) => {
       periodState = state;
       renderMonths();

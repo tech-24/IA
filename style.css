@@ -1328,3 +1328,26 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   font-weight: 700;
   font-family: inherit;
 }
+
+/* فلتر المفتش القابل للبحث (visits.html) */
+.insp-btn-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insp-search {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-family: inherit;
+}
+.insp-list { max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.insp-item {
+  background: transparent;
+  color: var(--text);
+  text-align: right;
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 500;
+}
+.insp-item.active { background: var(--primary-lighter); color: var(--primary); font-weight: 700; }

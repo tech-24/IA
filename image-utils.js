@@ -91,17 +91,19 @@ function formatStampDate(d) {
 // تحويل الإحداثيات إلى عنوان نصي عبر OpenStreetMap (Nominatim). ترجع أسطر العنوان، أو مصفوفة فارغة عند أي فشل.
 // تُخزَّن النتيجة مؤقتًا لنفس الموقع لتخدم صورتي المنشأة والرخصة بطلب واحد.
 const _addressCache = new Map();
-function fetchAddressLines(lat, lng, timeoutMs = 3000) {
+function fetchAddressLines(lat, lng, timeoutMs = 6000) {
   const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
   if (_addressCache.has(key)) return _addressCache.get(key);
 
-  const promise = (async () => {
+  // محاولة واحدة بمهلة محددة. retry=true يعني فشلًا سريعًا بالشبكة (لا انتهاء مهلة) فيستحق إعادة المحاولة
+  async function attempt() {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=ar`;
       const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) return [];
+      if (!res.ok) return { lines: [], retry: false };
       const a = (await res.json()).address || {};
 
       const road = [a.house_number, a.road].filter(Boolean).join(" ");
@@ -110,12 +112,21 @@ function fetchAddressLines(lat, lng, timeoutMs = 3000) {
       const city = a.city || a.town || a.village || a.county || a.state || "";
       const place = [city, a.country].filter(Boolean).join("، ");
 
-      return [road, hood, place].filter(Boolean);
+      return { lines: [road, hood, place].filter(Boolean), retry: false };
     } catch (e) {
-      return [];
+      return { lines: [], retry: !timedOut };
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  const promise = (async () => {
+    let r = await attempt();
+    if (r.lines.length === 0 && r.retry) {
+      await new Promise((res) => setTimeout(res, 600));
+      r = await attempt();
+    }
+    return r.lines;
   })();
 
   _addressCache.set(key, promise);
@@ -127,7 +138,13 @@ function fetchAddressLines(lat, lng, timeoutMs = 3000) {
 // ترسم أسطر النص أعلى يمين الصورة (أبيض بظل خفيف) وترجع ملف JPEG جديد (مصغّر لأقصى 1280 بكسل)
 async function stampPhoto(file, lines, maxDimension = 1280, quality = 0.85) {
   if (document.fonts && document.fonts.load) {
-    try { await document.fonts.load("600 20px Tajawal"); } catch (e) {}
+    // ننتظر الخط بحد أقصى ثانية ونصف حتى لا يتعطل الختم لو تأخر تحميله
+    try {
+      await Promise.race([
+        document.fonts.load("600 20px Tajawal"),
+        new Promise((r) => setTimeout(r, 1500)),
+      ]);
+    } catch (e) {}
   }
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -187,23 +204,25 @@ async function stampPhoto(file, lines, maxDimension = 1280, quality = 0.85) {
   });
 }
 
-// نافذة اختيار مصدر الصورة: "camera" أو "gallery" أو null عند الإلغاء
-function pickPhotoSource() {
-  return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "drp-overlay";
-    overlay.innerHTML =
-      '<div class="drp-box" style="max-width:320px">' +
-      '<button type="button" data-v="camera" style="width:100%;margin-bottom:8px">التقاط صورة</button>' +
-      '<button type="button" class="secondary drp-close" data-v="gallery" style="width:100%;margin:0 0 8px">اختيار من المعرض</button>' +
-      '<button type="button" class="link-btn" data-v="" style="display:block;margin:10px auto 0">إلغاء</button>' +
-      "</div>";
-    document.body.appendChild(overlay);
-    const finish = (v) => { overlay.remove(); resolve(v || null); };
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) return finish(null);
-      const btn = e.target.closest("button[data-v]");
-      if (btn) finish(btn.dataset.v);
-    });
+// نافذة اختيار مصدر الصورة (التقاط صورة / اختيار من المعرض / إلغاء).
+// الدالة المناسبة (onCamera أو onGallery) تُنفَّذ داخل حدث النقر نفسه مباشرة بدون await،
+// لأن المتصفحات (خصوصًا Safari على iPhone) ترفض فتح الكاميرا أو المعرض إذا تأخّر الاستدعاء عن لمسة المستخدم
+function pickPhotoSource({ onCamera, onGallery }) {
+  const overlay = document.createElement("div");
+  overlay.className = "drp-overlay";
+  overlay.innerHTML =
+    '<div class="drp-box" style="max-width:320px">' +
+    '<button type="button" data-v="camera" style="width:100%;margin-bottom:8px">التقاط صورة</button>' +
+    '<button type="button" class="secondary drp-close" data-v="gallery" style="width:100%;margin:0 0 8px">اختيار من المعرض</button>' +
+    '<button type="button" class="link-btn" data-v="" style="display:block;margin:10px auto 0">إلغاء</button>' +
+    "</div>";
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) { overlay.remove(); return; }
+    const btn = e.target.closest("button[data-v]");
+    if (!btn) return;
+    overlay.remove();
+    if (btn.dataset.v === "camera") onCamera();
+    else if (btn.dataset.v === "gallery") onGallery();
   });
 }

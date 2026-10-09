@@ -305,27 +305,59 @@
     // موقع الجهاز لحظة التصوير: من تتبّع GPS الجاري (تسجيل جديد)، أو قراءة سريعة (وضع التعديل)
     function getStampPosition() {
       return new Promise((resolve) => {
-        if (editingVisitId === null && locationWatchId !== null && capturedLat !== null && capturedLng !== null) {
-          return resolve({ lat: capturedLat, lng: capturedLng });
+        const haveFix = () => capturedLat !== null && capturedLng !== null;
+        const fromWatch = () => ({ lat: capturedLat, lng: capturedLng });
+        // قراءة واحدة مباشرة (وضع التعديل، أو لم يصل شيء من التتبع)
+        const readOnce = () => {
+          if (!navigator.geolocation) return resolve(null);
+          navigator.geolocation.getCurrentPosition(
+            (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+            () => resolve(null),
+            { enableHighAccuracy: true, timeout: 4000, maximumAge: 60000 }
+          );
+        };
+
+        if (editingVisitId === null && locationWatchId !== null) {
+          if (haveFix()) return resolve(fromWatch());
+          // التتبع شغّال لكن أول قراءة لم تصل بعد: ننتظرها حتى 5 ثوانٍ ثم نجرب قراءة مباشرة
+          let waited = 0;
+          const timer = setInterval(() => {
+            waited += 250;
+            if (haveFix()) { clearInterval(timer); resolve(fromWatch()); }
+            else if (waited >= 5000) { clearInterval(timer); readOnce(); }
+          }, 250);
+          return;
         }
-        if (!navigator.geolocation) return resolve(null);
-        navigator.geolocation.getCurrentPosition(
-          (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-          () => resolve(null),
-          { enableHighAccuracy: true, timeout: 2500, maximumAge: 30000 }
-        );
+        readOnce();
       });
     }
 
-    // يختم الصورة الملتقطة؛ عند أي فشل نرجع الصورة الأصلية بدون ختم ولا نوقف التسجيل
+    // يختم الصورة الملتقطة بالتاريخ والوقت والعنوان. يرجع { file, note }:
+    //  - لو تعذّر جلب العنوان نكتب الإحداثيات بدله
+    //  - لو تعذّر تحديد الموقع كليًا نكتفي بالتاريخ والوقت
+    //  - عند أي فشل نرجع الصورة الأصلية بدون ختم ولا نوقف التسجيل
+    // note: ملاحظة قصيرة تظهر تحت المربع لتوضح للمفتش ما الذي ظهر على الصورة
     async function stampCameraPhoto(file) {
       try {
         const when = new Date(); // لحظة الالتقاط
+        const lines = [formatStampDate(when)];
+        let note = "";
         const pos = await getStampPosition();
-        const addressLines = pos ? await fetchAddressLines(pos.lat, pos.lng) : [];
-        return await stampPhoto(file, [formatStampDate(when), ...addressLines]);
+        if (pos) {
+          const addressLines = await fetchAddressLines(pos.lat, pos.lng);
+          if (addressLines.length > 0) {
+            lines.push(...addressLines);
+          } else {
+            // ‪ ‬: إجبار الاتجاه من اليسار لليمين حتى لا ينعكس ترتيب الرقمين
+            lines.push(`‪${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}‬`);
+            note = "تعذّر جلب العنوان، فكُتبت الإحداثيات على الصورة.";
+          }
+        } else {
+          note = "تعذّر تحديد الموقع، فخُتمت الصورة بالتاريخ والوقت فقط.";
+        }
+        return { file: await stampPhoto(file, lines), note };
       } catch (e) {
-        return file;
+        return { file, note: "تعذّر ختم الصورة، فأُضيفت كما التُقطت." };
       }
     }
     function setupPhotoBox(boxId, inputId) {
@@ -335,6 +367,15 @@
       let existingUrl = null;
       let hadExisting = false;
       let clearedExisting = false;
+
+      // ملاحظة صغيرة تحت المربع عن نتيجة الختم (تظهر فقط عند وجود نقص)
+      const noteEl = document.createElement("div");
+      noteEl.style.cssText = "font-size:12px;color:#b45309;margin-top:6px;display:none";
+      box.insertAdjacentElement("afterend", noteEl);
+      function showNote(msg) {
+        noteEl.textContent = msg || "";
+        noteEl.style.display = msg ? "block" : "none";
+      }
 
       function render() {
         box.innerHTML = "";
@@ -354,6 +395,7 @@
             file = null;
             existingUrl = null;
             input.value = "";
+            showNote("");
             render();
           });
           box.appendChild(removeBtn);
@@ -370,15 +412,21 @@
       cameraInput.style.display = "none";
       document.body.appendChild(cameraInput);
 
-      box.addEventListener("click", async () => {
-        const source = await pickPhotoSource();
-        if (source === "camera") cameraInput.click();
-        else if (source === "gallery") input.click();
+      box.addEventListener("click", () => {
+        const openCamera = () => cameraInput.click();
+        const openGallery = () => input.click();
+        // احتياط: لو ملف image-utils.js على الموقع قديم (بدون نافذة الاختيار) نفتح المعرض مباشرة بدل ألا يحدث شيء
+        if (typeof pickPhotoSource !== "function") {
+          openGallery();
+          return;
+        }
+        pickPhotoSource({ onCamera: openCamera, onGallery: openGallery });
       });
       input.addEventListener("change", () => {
         if (input.files[0]) {
           file = input.files[0];
           clearedExisting = false;
+          showNote("");
           render();
         }
       });
@@ -386,10 +434,13 @@
         const captured = cameraInput.files[0];
         cameraInput.value = "";
         if (!captured) return;
+        showNote("");
         box.innerHTML = '<span class="visit-photo-placeholder" style="font-size:12px">جارٍ تجهيز الصورة...</span>';
-        file = await stampCameraPhoto(captured);
+        const result = await stampCameraPhoto(captured);
+        file = result.file;
         clearedExisting = false;
         render();
+        showNote(result.note);
       });
 
       return {
@@ -399,6 +450,7 @@
           clearedExisting = false;
           file = null;
           input.value = "";
+          showNote("");
           render();
         },
         reset() {
@@ -407,6 +459,7 @@
           hadExisting = false;
           clearedExisting = false;
           input.value = "";
+          showNote("");
           render();
         },
         getFile: () => file,

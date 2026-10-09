@@ -1,6 +1,6 @@
 // ==================================================================
-// export.js — تصدير زيارات أداة إلى ملف Excel + مجلد صور، داخل ZIP واحد
-// يتطلب تحميل مكتبتي ExcelJS و JSZip (عبر CDN) قبل هذا الملف، بجانب visits.js
+// export.js — تصدير زيارات أداة إلى ملف Excel واحد (والصور مدمجة فيه عند تفعيل التضمين)
+// يتطلب تحميل مكتبة ExcelJS (عبر CDN) قبل هذا الملف، بجانب visits.js
 // ==================================================================
 
 const BRAND_COLOR_ARGB = "FF3379BD"; // نفس اللون الأساسي للهوية، بصيغة ARGB اللي تحتاجها ExcelJS
@@ -45,15 +45,53 @@ async function fetchImageBuffer(path) {
 }
 
 // -------------------------------------------------
+// تثبيت الصورة داخل الخلية: تتحرك وتتغير مع الصف (وتختفي عند إخفائه بالفلتر)
+// تُحسب أبعادها من أبعاد الصورة الفعلية لتبقى النسبة سليمة وتتوسّط الخلية
+// ملاحظة: الفرز داخل إكسل لا يحرّك الصور مع صفوفها (قيد في إكسل نفسه)
+// -------------------------------------------------
+const CELL_PX_W = 117; // عرض عمود الصورة (16 حرفًا) تقريبًا بالبكسل
+const CELL_PX_H = 80;  // ارتفاع الصف (60 نقطة) بالبكسل
+
+function jpegSize(buffer) {
+  try {
+    const b = new Uint8Array(buffer);
+    let i = 2;
+    while (i < b.length) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const marker = b[i + 1];
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        return { height: (b[i + 5] << 8) | b[i + 6], width: (b[i + 7] << 8) | b[i + 8] };
+      }
+      i += 2 + ((b[i + 2] << 8) | b[i + 3]);
+    }
+  } catch (e) {}
+  return null;
+}
+
+function placeImageInCell(workbook, sheet, buffer, col, rowIndex) {
+  const imgId = workbook.addImage({ buffer, extension: "jpeg" });
+  const dims = jpegSize(buffer) || { width: 4, height: 3 };
+  const maxW = CELL_PX_W - 8, maxH = CELL_PX_H - 8;
+  const scale = Math.min(maxW / dims.width, maxH / dims.height);
+  const w = dims.width * scale, h = dims.height * scale;
+  const ox = (CELL_PX_W - w) / 2, oy = (CELL_PX_H - h) / 2;
+  sheet.addImage(imgId, {
+    tl: { col: col + ox / CELL_PX_W, row: rowIndex + oy / CELL_PX_H },
+    br: { col: col + (ox + w) / CELL_PX_W, row: rowIndex + (oy + h) / CELL_PX_H },
+    editAs: "twoCell",
+  });
+}
+
+// -------------------------------------------------
 // التصدير الرئيسي
 // tool: صف الأداة { id, name }
 // visits: الزيارات المطلوب تصديرها — المفلترة فعليًا (نفس اللي ظاهر بالقائمة)
 // statuses / areas: كل حالات ونطاقات الأداة (بترتيبها، لتوليد أعمدة الملخص وألوان الحالات)
-// includePhotos: true = ملف Excel + مجلد صور داخل ZIP، false = ملف Excel وحده بدون صور
+// includePhotos: true = صور المنشأة والرخصة مدمجة داخل ملف Excel نفسه، false = بيانات نصية فقط
 // filterSummary: نص يوضّح الفلاتر الفعّالة وقت التصدير، يُكتب أعلى ورقة "ملخص"
 // onProgress(done, total): استدعاء اختياري لتحديث شريط تقدّم بالواجهة (يُستدعى فقط لو تضمين الصور مفعّل)
 // -------------------------------------------------
-async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, filterSummary, onProgress) {
+async function exportVisitsToExcel(tool, visits, statuses, areas, includePhotos, filterSummary, onProgress) {
   const workbook = new ExcelJS.Workbook();
 
   // لون كل حالة حسب ترتيبها — نفس منطق الألوان المستخدم بعرض القائمة بالصفحة
@@ -124,20 +162,6 @@ async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, f
     AREA_COLUMNS.push({ header: "صورة المنشأة", width: 16 }, { header: "صورة الرخصة", width: 16 });
   }
 
-  // لتسمية ملفات الصور بمجلد كل نطاق (تكرار اسم المنشأة داخل نفس النطاق يُرقَّم) — تُستخدم فقط لو تضمين الصور مفعّل
-  const usedNamesByArea = new Map();
-  // نثبّت رقم التكرار مرة وحدة لكل زيارة (مو مرة لكل صورة)، عشان صورتي نفس الزيارة ياخذوا نفس الرقم
-  function establishmentOccurrence(areaName, establishmentName) {
-    if (!usedNamesByArea.has(areaName)) usedNamesByArea.set(areaName, new Map());
-    const counts = usedNamesByArea.get(areaName);
-    const base = sanitizeFileName(establishmentName);
-    const n = (counts.get(base) || 0) + 1;
-    counts.set(base, n);
-    return n;
-  }
-
-  const zip = includePhotos ? new JSZip() : null;
-  const photosFolder = includePhotos ? zip.folder("الصور") : null;
   let doneCount = 0;
   const totalPhotos = includePhotos
     ? visits.filter((v) => v.establishment_photo_path).length + visits.filter((v) => v.license_photo_path).length
@@ -151,8 +175,6 @@ async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, f
     const sheet = workbook.addWorksheet(sheetName, { views: [{ rightToLeft: true }] });
     sheet.columns = AREA_COLUMNS;
     styleHeaderRow(sheet.getRow(1));
-
-    let areaFolder = null; // ننشئ مجلد النطاق بالصور فقط أول ما تحتاجه فعليًا (صورة حقيقية موجودة)
 
     for (let i = 0; i < areaVisits.length; i++) {
       const v = areaVisits[i];
@@ -190,19 +212,11 @@ async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, f
 
       if (!includePhotos) continue; // بدون تضمين صور، نكتفي بصف البيانات النصية
 
-      // رقم تكرار اسم المنشأة بهذا النطاق (مشترك بين صورتي الزيارة)
-      const occurrence = v.establishment_photo_path || v.license_photo_path ? establishmentOccurrence(area.name, v.establishment_name) : null;
-      const suffix = occurrence && occurrence > 1 ? ` (${occurrence})` : "";
-      const baseName = sanitizeFileName(v.establishment_name) + suffix;
-
-      // صورة المنشأة: نضيفها للإكسل (مصغّرة بالخلية) وللمجلد (نفس الملف الأصلي)
+      // صورة المنشأة: تُدمج في الإكسل (تظهر مصغّرة بالخلية والصورة الأصلية محفوظة داخل الملف)
       if (v.establishment_photo_path) {
         const buffer = await fetchImageBuffer(v.establishment_photo_path);
         if (buffer) {
-          if (!areaFolder) areaFolder = photosFolder.folder(sanitizeFileName(area.name));
-          areaFolder.file(`${baseName} - منشأة.jpg`, buffer);
-          const imgId = workbook.addImage({ buffer, extension: "jpeg" });
-          sheet.addImage(imgId, { tl: { col: 10, row: row.number - 1 }, ext: { width: 70, height: 60 } });
+          placeImageInCell(workbook, sheet, buffer, 10, row.number - 1);
         }
         doneCount++;
         if (onProgress) onProgress(doneCount, totalPhotos);
@@ -212,10 +226,7 @@ async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, f
       if (v.license_photo_path) {
         const buffer = await fetchImageBuffer(v.license_photo_path);
         if (buffer) {
-          if (!areaFolder) areaFolder = photosFolder.folder(sanitizeFileName(area.name));
-          areaFolder.file(`${baseName} - رخصة.jpg`, buffer);
-          const imgId = workbook.addImage({ buffer, extension: "jpeg" });
-          sheet.addImage(imgId, { tl: { col: 11, row: row.number - 1 }, ext: { width: 70, height: 60 } });
+          placeImageInCell(workbook, sheet, buffer, 11, row.number - 1);
         }
         doneCount++;
         if (onProgress) onProgress(doneCount, totalPhotos);
@@ -226,25 +237,16 @@ async function exportVisitsToZip(tool, visits, statuses, areas, includePhotos, f
   }
 
   // ================================================================
-  // تجميع الملف النهائي
-  // تضمين الصور مفعّل: إكسل + مجلد الصور داخل ZIP
-  // تضمين الصور مطفّي: ملف إكسل وحده، بدون ZIP
+  // الملف النهائي: Excel واحد دائمًا (والصور مدمجة فيه عند تفعيل التضمين)
   // ================================================================
   const excelBuffer = await workbook.xlsx.writeBuffer();
   const safeToolName = sanitizeFileName(tool.name);
   const dateStamp = new Date().toISOString().slice(0, 10);
 
-  if (includePhotos) {
-    // نفس نسخة zip اللي أُنشئت فوق (وفيها مجلد "الصور" معبّى فعليًا أثناء الحلقة) — نضيف لها ملف الإكسل الآن بس
-    zip.file(`${safeToolName}.xlsx`, excelBuffer);
-    const zipBlob = await zip.generateAsync({ type: "blob" });
-    downloadBlob(zipBlob, `${safeToolName} - ${dateStamp}.zip`);
-  } else {
-    downloadBlob(
-      new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-      `${safeToolName} - ${dateStamp}.xlsx`
-    );
-  }
+  downloadBlob(
+    new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+    `${safeToolName} - ${dateStamp}.xlsx`
+  );
 }
 
 // -------------------------------------------------

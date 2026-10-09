@@ -1242,3 +1242,89 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 .case-acc.locked .case-acc-chevron { display: none; }
 .case-acc.locked .case-acc-head { cursor: default; opacity: 1; }
 .case-acc.locked .case-acc-head:disabled { opacity: 1; color: var(--text); }
+
+/* ================================================================
+   منتقي الفترة الزمنية (date-range-picker.js)
+   ================================================================ */
+.period-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fbfcfe;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 600;
+  text-align: right;
+}
+.drp-btn-label { display: flex; align-items: center; gap: 8px; }
+.drp-btn-label svg { color: var(--primary); flex-shrink: 0; }
+
+.drp-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  z-index: 1100;
+}
+.drp-box {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 18px 16px 16px;
+  width: 100%;
+  max-width: 380px;
+  max-height: 92vh;
+  overflow-y: auto;
+  direction: rtl;
+}
+.drp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.drp-chip {
+  background: transparent;
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+}
+.drp-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.drp-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.drp-month-title { font-weight: 700; font-size: 16px; }
+.drp-nav-btn {
+  width: 40px; height: 40px;
+  padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #eef1f3;
+  color: var(--text);
+  border-radius: 12px;
+}
+.drp-weekdays, .drp-grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+.drp-weekdays span { font-size: 12px; color: var(--text-muted); padding: 6px 0; }
+.drp-day {
+  background: transparent;
+  color: var(--text);
+  padding: 0;
+  height: 40px;
+  font-size: 15px;
+  font-family: inherit;
+  border-radius: 0;
+}
+.drp-day.today { color: var(--primary); font-weight: 800; }
+.drp-day.in-range { background: var(--primary-lighter); }
+.drp-day.edge { background: var(--primary); color: #fff; border-radius: 10px; }
+.drp-hint { text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 12px; }
+.drp-box button.drp-close {
+  background: #eef4fb;
+  color: var(--primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+}

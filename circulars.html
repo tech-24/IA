@@ -51,7 +51,29 @@
 
 
   <div class="main" style="padding-bottom:8px">
+    <!-- زر إضافة تعميم: يظهر للمشرف والمالك فقط (التعديل والحذف يبقيان بوضع المشرف) -->
+    <div class="add-item-btn" id="addCircularBtn" style="display:none;margin-bottom:12px">+ إضافة تعميم جديد</div>
     <div id="circularsList"></div>
+  </div>
+
+  <!-- ==================== نافذة إضافة تعميم ==================== -->
+  <div class="modal-overlay" id="circularModal" style="display:none">
+    <div class="modal-box">
+      <h3>إضافة تعميم جديد</h3>
+      <div class="field">
+        <label for="circularTitleInput">عنوان التعميم</label>
+        <input type="text" id="circularTitleInput" />
+      </div>
+      <div class="field">
+        <label for="circularContentInput">نص التعميم</label>
+        <textarea id="circularContentInput" style="min-height:140px"></textarea>
+      </div>
+      <div class="error" id="circularModalError"></div>
+      <div class="modal-actions">
+        <button id="saveCircularBtn">نشر</button>
+        <button class="secondary" id="cancelCircularBtn">إلغاء</button>
+      </div>
+    </div>
   </div>
   <div class="bottom-nav-spacer"></div>
 
@@ -142,8 +164,50 @@
     // ==================================================================
     // تشغيل الصفحة
     // ==================================================================
+    // -------------------------------------------------
+    // إضافة تعميم (للمشرف والمالك فقط؛ قاعدة البيانات تمنع غيرهم أصلًا)
+    // -------------------------------------------------
+    const circularModal = document.getElementById("circularModal");
+    const circularModalError = document.getElementById("circularModalError");
+
+    document.getElementById("addCircularBtn").addEventListener("click", () => {
+      document.getElementById("circularTitleInput").value = "";
+      document.getElementById("circularContentInput").value = "";
+      circularModalError.textContent = "";
+      circularModal.style.display = "flex";
+    });
+    document.getElementById("cancelCircularBtn").addEventListener("click", () => {
+      circularModal.style.display = "none";
+    });
+
+    document.getElementById("saveCircularBtn").addEventListener("click", async () => {
+      const title = document.getElementById("circularTitleInput").value.trim();
+      const content = document.getElementById("circularContentInput").value.trim();
+      if (!title || !content) {
+        circularModalError.textContent = "اكتب العنوان والنص";
+        return;
+      }
+      const saveBtn = document.getElementById("saveCircularBtn");
+      saveBtn.disabled = true; // يمنع النشر المكرر
+      try {
+        const created = await addCircular({ title, content });
+        allCirculars.unshift(created);
+        // التعميم من كتابتك، فلا داعي لتظهر لك كغير مقروء
+        try { await markCircularRead(created.id); myReadIds.push(created.id); } catch (e) {}
+        circularModal.style.display = "none";
+        renderCirculars();
+      } catch (e) {
+        circularModalError.textContent = e.message || "حدث خطأ أثناء النشر";
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+
     (async () => {
-      await requireAuth(); // أي مستخدم مسجل دخول (زائر أو مشرف)
+      const profile = await requireAuth(); // أي مستخدم مسجل دخول (زائر أو مشرف)
+      if (profile.role === "admin" || profile.role === "owner") {
+        document.getElementById("addCircularBtn").style.display = "block";
+      }
       await loadCirculars();
       updateCircularsNavDot();
     })();

@@ -66,6 +66,7 @@ async function updateMyPassword(newPassword) {
 // تسجيل خروج المستخدم الحالي، وإعادته لصفحة تسجيل الدخول
 // -------------------------------------------------
 async function logout() {
+  sessionStorage.removeItem("mode_restore_done"); // عند الدخول التالي نعيد فحص آخر وضع
   sessionStorage.removeItem("inspector_profile_cache"); // نفضي النسخة المحفوظة مؤقتًا من بيانات الدور
   await supabaseClient.auth.signOut();
   window.location.href = "login.html";

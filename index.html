@@ -220,6 +220,17 @@
         // نخفي الشارة للمشرف لأن مفتاح "وضع المفتش" أصلاً يدل إنه مشرف، وتكرار الكلمة زيادة بدون داعي
         roleBadge.style.display = "none";
         document.getElementById("inspectorModeWrap").style.display = "flex";
+
+        // تذكّر آخر وضع: عند أول فتح للموقع في هذه الجلسة، لو كان المشرف آخر مرة بوضع المشرف نرجّعه له
+        try {
+          const firstOpen = !sessionStorage.getItem("mode_restore_done");
+          sessionStorage.setItem("mode_restore_done", "1");
+          if (firstOpen && localStorage.getItem("inspector_last_mode") === "admin") {
+            window.location.href = "admin.html";
+            return;
+          }
+          localStorage.setItem("inspector_last_mode", "inspector");
+        } catch (e) { /* التخزين غير متاح: نكمل بدون تذكّر الوضع */ }
       } else {
         roleBadge.textContent = "مفتش";
       }
@@ -227,6 +238,7 @@
       // تعطيل المفتاح (لأنه مفعّل افتراضيًا) يرجّع المشرف للوحة المشرف
       document.getElementById("inspectorModeToggle").addEventListener("change", (e) => {
         if (!e.target.checked) {
+          try { localStorage.setItem("inspector_last_mode", "admin"); } catch (err) {}
           window.location.href = "admin.html";
         }
       });

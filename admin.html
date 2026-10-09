@@ -312,7 +312,13 @@
     (async () => {
       const profile = await requireAuth({ adminOnly: true });
 
+      try {
+        sessionStorage.setItem("mode_restore_done", "1");
+        localStorage.setItem("inspector_last_mode", "admin");
+      } catch (e) {}
+
       document.getElementById("inspectorModeToggle").addEventListener("change", () => {
+        try { localStorage.setItem("inspector_last_mode", "inspector"); } catch (e) {}
         window.location.href = "index.html";
       });
 

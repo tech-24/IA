@@ -71,9 +71,10 @@
     </div>
 
     <div id="visitTabsWrap" style="display:none">
-      <div class="tabs-row">
-        <button class="tab-btn active" id="registerTabBtn">تسجيل زيارة</button>
-        <button class="tab-btn" id="myVisitsTabBtn">زياراتي</button>
+      <!-- الشريط يظهر للمشرف فقط (زياراتي + جميع الزيارات)؛ المفتش يرى زياراته مباشرة -->
+      <div class="tabs-row" id="visitTabsRow" style="display:none">
+        <button class="tab-btn active" id="myVisitsTabBtn">زياراتي</button>
+        <a class="tab-btn" id="allVisitsLink" href="#" style="text-decoration:none">جميع الزيارات</a>
       </div>
 
       <!-- ==================== تبويب تسجيل زيارة ==================== -->
@@ -133,25 +134,18 @@
         <div class="error" id="registerError"></div>
         <div class="success" id="registerSuccess"></div>
         <button id="saveVisitBtn">حفظ الزيارة</button>
-        <button class="secondary" id="cancelEditVisitBtn" style="display:none">إلغاء التعديل</button>
+        <button class="secondary" id="cancelEditVisitBtn">إلغاء</button>
       </div>
 
       <!-- ==================== تبويب زياراتي ==================== -->
       <div id="myVisitsTab" style="display:none">
+        <button id="newVisitBtn" style="width:100%;margin-bottom:12px">+ تسجيل زيارة جديدة</button>
+        <div class="success" id="mineToast"></div>
         <div class="field">
           <input type="text" id="visitSearchInput" placeholder="ابحث باسم المنشأة أو رقم الرخصة..." />
         </div>
         <div class="visit-filters-row">
-          <select id="periodSelect">
-            <option value="this_month">هذا الشهر</option>
-            <option value="last_month">الشهر الماضي</option>
-            <option value="all_time">كل الوقت</option>
-            <option value="custom">تحديد يدوي</option>
-          </select>
-        </div>
-        <div class="visit-filters-row" id="customDateRow" style="display:none">
-          <label class="date-filter-field">من<input type="date" id="filterDateFrom" /></label>
-          <label class="date-filter-field">إلى<input type="date" id="filterDateTo" /></label>
+          <button type="button" class="period-btn" id="periodBtn"></button>
         </div>
         <div class="visit-filters-row">
           <select id="filterArea"><option value="">كل النطاقات</option></select>
@@ -199,12 +193,12 @@
   </nav>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
   <script src="visits.js"></script>
+  <script src="date-range-picker.js"></script>
   <script src="export.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
@@ -404,13 +398,11 @@
     // -------------------------------------------------
     // تبويبات تسجيل زيارة / زياراتي
     // -------------------------------------------------
-    const registerTabBtn = document.getElementById("registerTabBtn");
     const myVisitsTabBtn = document.getElementById("myVisitsTabBtn");
     const registerTab = document.getElementById("registerTab");
     const myVisitsTab = document.getElementById("myVisitsTab");
 
     function showTab(tab) {
-      registerTabBtn.classList.toggle("active", tab === "register");
       myVisitsTabBtn.classList.toggle("active", tab === "mine");
       registerTab.style.display = tab === "register" ? "block" : "none";
       myVisitsTab.style.display = tab === "mine" ? "block" : "none";
@@ -418,8 +410,22 @@
       else stopLocationWatch(); // مغادرة تبويب التسجيل (أو فتح تعديل) توقف المتابعة
       if (tab === "mine") renderMonths();
     }
-    registerTabBtn.addEventListener("click", () => showTab("register"));
     myVisitsTabBtn.addEventListener("click", () => showTab("mine"));
+
+    // زر "+ تسجيل زيارة جديدة": يفتح نموذج التسجيل (فارغًا)
+    document.getElementById("newVisitBtn").addEventListener("click", () => {
+      resetRegisterForm();
+      showTab("register");
+    });
+
+    // رسالة نجاح قصيرة تظهر أعلى "زياراتي" بعد الحفظ
+    let mineToastTimer = null;
+    function showMineToast(msg) {
+      const el = document.getElementById("mineToast");
+      el.textContent = msg;
+      clearTimeout(mineToastTimer);
+      mineToastTimer = setTimeout(() => { el.textContent = ""; }, 2500);
+    }
 
     // -------------------------------------------------
     // تعبئة قوائم الحالات والنطاقات (نموذج التسجيل + فلاتر زياراتي)
@@ -467,7 +473,7 @@
       document.getElementById("registerError").textContent = "";
       document.getElementById("registerSuccess").textContent = "";
       document.getElementById("saveVisitBtn").textContent = "حفظ الزيارة";
-      document.getElementById("cancelEditVisitBtn").style.display = "none";
+      document.getElementById("cancelEditVisitBtn").textContent = "إلغاء";
       document.getElementById("manualLocationField").style.display = "none";
       manualLocationUrl = null;
       startLocationWatch();
@@ -504,12 +510,15 @@
       document.getElementById("registerError").textContent = "";
       document.getElementById("registerSuccess").textContent = "";
       document.getElementById("saveVisitBtn").textContent = "حفظ التعديل";
-      document.getElementById("cancelEditVisitBtn").style.display = "inline-block";
+      document.getElementById("cancelEditVisitBtn").textContent = "إلغاء التعديل";
       document.getElementById("visitDetailModal").style.display = "none";
       showTab("register");
     }
 
-    document.getElementById("cancelEditVisitBtn").addEventListener("click", resetRegisterForm);
+    document.getElementById("cancelEditVisitBtn").addEventListener("click", () => {
+      resetRegisterForm();
+      showTab("mine");
+    });
 
     document.getElementById("saveVisitBtn").addEventListener("click", async () => {
       const errorEl = document.getElementById("registerError");
@@ -564,8 +573,9 @@
           const updated = await updateVisit(editingVisitId, updates);
           const index = myVisits.findIndex((v) => v.id === editingVisitId);
           if (index !== -1) myVisits[index] = { ...myVisits[index], ...updated };
-          successEl.textContent = "تم حفظ التعديل ✓";
           resetRegisterForm();
+          showTab("mine");
+          showMineToast("تم حفظ التعديل ✓");
         } else {
           const visitId = crypto.randomUUID(); // نولّده هنا عشان نرفع الصور بمساره قبل حفظ الصف
           const establishment_photo_path = estFile
@@ -597,8 +607,9 @@
             visit_areas: areas.find((a) => a.id === area_id) || null,
             profiles: { full_name: myProfile.full_name, email: myProfile.email },
           });
-          successEl.textContent = "تم حفظ الزيارة ✓";
           resetRegisterForm();
+          showTab("mine");
+          showMineToast("تم حفظ الزيارة ✓");
         }
       } catch (e) {
         errorEl.textContent = e.message || "تعذّر حفظ الزيارة";
@@ -641,26 +652,10 @@
     function toDateInputValue(d) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }
+    // حدود الفترة المختارة من منتقي الفترة (date-range-picker.js)
+    let periodState = { preset: "this_month" };
     function resolvePeriodRange() {
-      const period = document.getElementById("periodSelect").value;
-      const now = new Date();
-      if (period === "this_month") {
-        return {
-          from: toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1)),
-          to: toDateInputValue(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
-        };
-      }
-      if (period === "last_month") {
-        return {
-          from: toDateInputValue(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
-          to: toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 0)),
-        };
-      }
-      if (period === "all_time") return { from: "", to: "" };
-      return {
-        from: document.getElementById("filterDateFrom").value,
-        to: document.getElementById("filterDateTo").value,
-      };
+      return resolveDateRange(periodState);
     }
 
     function getFilteredVisits() {
@@ -747,10 +742,8 @@
     document.getElementById("visitSearchInput").addEventListener("input", renderMonths);
     document.getElementById("filterArea").addEventListener("change", renderMonths);
     document.getElementById("filterStatus").addEventListener("change", renderMonths);
-    document.getElementById("filterDateFrom").addEventListener("change", renderMonths);
-    document.getElementById("filterDateTo").addEventListener("change", renderMonths);
-    document.getElementById("periodSelect").addEventListener("change", () => {
-      document.getElementById("customDateRow").style.display = document.getElementById("periodSelect").value === "custom" ? "flex" : "none";
+    createDateRangePicker(document.getElementById("periodBtn"), periodState, (state) => {
+      periodState = state;
       renderMonths();
     });
 
@@ -821,15 +814,7 @@
     // تصدير Excel — المفتش يصدّر زياراته هو بس
     // -------------------------------------------------
     function buildFilterSummary() {
-      const periodLabels = { this_month: "هذا الشهر", last_month: "الشهر الماضي", all_time: "كل الوقت" };
-      const periodValue = document.getElementById("periodSelect").value;
-      let period;
-      if (periodValue === "custom") {
-        const { from, to } = resolvePeriodRange();
-        period = from || to ? `${(from || "—").replaceAll("-", "/")} – ${(to || "—").replaceAll("-", "/")}` : "الكل";
-      } else {
-        period = periodLabels[periodValue] || "الكل";
-      }
+      const period = describeDateRange(periodState);
 
       const areaId = document.getElementById("filterArea").value;
       const areaName = areaId ? (areas.find((a) => a.id === areaId) || {}).name || "—" : "الكل";
@@ -856,7 +841,7 @@
         const tool = { name: document.getElementById("toolTitle").textContent };
         const includePhotos = document.getElementById("includePhotosToggle").checked;
         const filterSummary = buildFilterSummary();
-        await exportVisitsToZip(tool, visitsToExport, statuses, areas, includePhotos, filterSummary, (done, total) => {
+        await exportVisitsToExcel(tool, visitsToExport, statuses, areas, includePhotos, filterSummary, (done, total) => {
           statusEl.textContent = total > 0 ? `جارٍ تجهيز الصور... (${done} من ${total})` : "جارٍ تجهيز ملف التصدير...";
         });
         statusEl.textContent = "تم التصدير ✓";
@@ -907,7 +892,14 @@
       });
 
       document.getElementById("visitTabsWrap").style.display = "block";
-      showTab("register");
+
+      // المشرف/المالك: رابط "جميع الزيارات" يفتح عرض المشرف الكامل دون الحاجة لتبديل الوضع
+      if (profile.role === "admin" || profile.role === "owner") {
+        document.getElementById("visitTabsRow").style.display = "flex";
+        document.getElementById("allVisitsLink").href = `visits.html?tool_id=${encodeURIComponent(toolId)}`;
+      }
+
+      showTab("mine");
     })();
   </script>
 </body>

@@ -134,16 +134,7 @@
           <input type="text" id="visitSearchInput" placeholder="ابحث باسم المنشأة أو رقم الرخصة..." />
         </div>
         <div class="visit-filters-row">
-          <select id="periodSelect">
-            <option value="this_month">هذا الشهر</option>
-            <option value="last_month">الشهر الماضي</option>
-            <option value="all_time">كل الوقت</option>
-            <option value="custom">تحديد يدوي</option>
-          </select>
-        </div>
-        <div class="visit-filters-row" id="customDateRow" style="display:none">
-          <label class="date-filter-field">من<input type="date" id="filterDateFrom" /></label>
-          <label class="date-filter-field">إلى<input type="date" id="filterDateTo" /></label>
+          <button type="button" class="period-btn" id="periodBtn"></button>
         </div>
         <div class="visit-filters-row">
           <select id="filterArea"><option value="">كل النطاقات</option></select>
@@ -185,12 +176,12 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
   <script src="visits.js"></script>
+  <script src="date-range-picker.js"></script>
   <script src="export.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
@@ -571,27 +562,10 @@
     function toDateInputValue(d) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }
+    // حدود الفترة المختارة من منتقي الفترة (date-range-picker.js)
+    let periodState = { preset: "this_month" };
     function resolvePeriodRange() {
-      const period = document.getElementById("periodSelect").value;
-      const now = new Date();
-      if (period === "this_month") {
-        return {
-          from: toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1)),
-          to: toDateInputValue(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
-        };
-      }
-      if (period === "last_month") {
-        return {
-          from: toDateInputValue(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
-          to: toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 0)),
-        };
-      }
-      if (period === "all_time") return { from: "", to: "" };
-      // تحديد يدوي: من حقلي التاريخ مباشرة
-      return {
-        from: document.getElementById("filterDateFrom").value,
-        to: document.getElementById("filterDateTo").value,
-      };
+      return resolveDateRange(periodState);
     }
 
     function getFilteredVisits() {
@@ -620,15 +594,7 @@
 
     // نص يوضّح الفلاتر الفعّالة وقت التصدير، يُكتب أعلى ورقة "ملخص" بالإكسل
     function buildFilterSummary() {
-      const periodLabels = { this_month: "هذا الشهر", last_month: "الشهر الماضي", all_time: "كل الوقت" };
-      const periodValue = document.getElementById("periodSelect").value;
-      let period;
-      if (periodValue === "custom") {
-        const { from, to } = resolvePeriodRange();
-        period = from || to ? `${(from || "—").replaceAll("-", "/")} – ${(to || "—").replaceAll("-", "/")}` : "الكل";
-      } else {
-        period = periodLabels[periodValue] || "الكل";
-      }
+      const period = describeDateRange(periodState);
 
       const areaId = document.getElementById("filterArea").value;
       const areaName = areaId ? (areas.find((a) => a.id === areaId) || {}).name || "—" : "الكل";
@@ -659,7 +625,7 @@
         const tool = { name: document.getElementById("toolTitle").textContent };
         const includePhotos = document.getElementById("includePhotosToggle").checked;
         const filterSummary = buildFilterSummary();
-        await exportVisitsToZip(tool, visitsToExport, statuses, areas, includePhotos, filterSummary, (done, total) => {
+        await exportVisitsToExcel(tool, visitsToExport, statuses, areas, includePhotos, filterSummary, (done, total) => {
           statusEl.textContent = total > 0 ? `جارٍ تجهيز الصور... (${done} من ${total})` : "جارٍ تجهيز ملف التصدير...";
         });
         statusEl.textContent = "تم التصدير ✓";
@@ -737,10 +703,8 @@
     document.getElementById("filterArea").addEventListener("change", renderMonths);
     document.getElementById("filterStatus").addEventListener("change", renderMonths);
     document.getElementById("filterInspector").addEventListener("change", renderMonths);
-    document.getElementById("filterDateFrom").addEventListener("change", renderMonths);
-    document.getElementById("filterDateTo").addEventListener("change", renderMonths);
-    document.getElementById("periodSelect").addEventListener("change", () => {
-      document.getElementById("customDateRow").style.display = document.getElementById("periodSelect").value === "custom" ? "flex" : "none";
+    createDateRangePicker(document.getElementById("periodBtn"), periodState, (state) => {
+      periodState = state;
       renderMonths();
     });
 

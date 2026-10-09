@@ -896,7 +896,7 @@
       // المشرف/المالك: رابط "جميع الزيارات" يفتح عرض المشرف الكامل دون الحاجة لتبديل الوضع
       if (profile.role === "admin" || profile.role === "owner") {
         document.getElementById("visitTabsRow").style.display = "flex";
-        document.getElementById("allVisitsLink").href = `visits.html?tool_id=${encodeURIComponent(toolId)}`;
+        document.getElementById("allVisitsLink").href = `visits.html?tool_id=${encodeURIComponent(toolId)}&tabs=1`;
       }
 
       showTab("mine");

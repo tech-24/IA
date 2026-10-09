@@ -66,6 +66,12 @@
     </label>
     <div class="export-status" id="exportStatus" style="display:none"></div>
 
+    <!-- شريط التبويبات: يظهر فقط عند الوصول من الوضع العادي (visits-view.html?...&tabs=1) -->
+    <div class="tabs-row" id="visitNavTabs" style="display:none">
+      <a class="tab-btn" id="myVisitsLink" href="#" style="text-decoration:none">زياراتي</a>
+      <button class="tab-btn active" type="button">جميع الزيارات</button>
+    </div>
+
     <div id="visitTabsWrap" style="display:none">
       <!-- ==================== نموذج تعديل زيارة — يظهر فقط عند الضغط على "تعديل" ==================== -->
       <div id="registerTab" style="display:none">
@@ -188,6 +194,14 @@
     const toolId = urlParams.get("tool_id");
 
     document.getElementById("backBtn").addEventListener("click", () => window.history.back());
+
+    // عند الوصول من الوضع العادي: نعرض تبويب "زياراتي" ونجعل "الصفحة الرئيسية" ترجع للوضع العادي
+    if (urlParams.get("tabs") === "1" && toolId) {
+      document.getElementById("visitNavTabs").style.display = "flex";
+      document.getElementById("myVisitsLink").href = `visits-view.html?tool_id=${encodeURIComponent(toolId)}`;
+      const homeLink = document.querySelector('#sideDrawer a[href="admin.html"]');
+      if (homeLink) homeLink.href = "index.html";
+    }
 
     let myProfile = null;
     let statuses = [];

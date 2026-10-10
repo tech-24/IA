@@ -1354,3 +1354,62 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
 
 /* أداة مخفية تظهر للمشرف/المالك فقط بصفحة أدوات المفتش: باهتة مع شارة "مخفية" */
 .tool-card.tool-hidden { opacity: 0.55; position: relative; }
+
+/* ================================================================
+   صورة التعميم: خانة الإرفاق بالنافذة + العرض بالتعميم المفتوح + التكبير
+   ================================================================ */
+.circ-img-field .circ-img-preview {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--primary-lighter);
+  padding: 6px;
+}
+.circ-img-field .circ-img-preview img {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.circ-img-field .circ-img-actions { display: flex; align-items: center; gap: 14px; }
+.circ-img-field .circ-img-actions button.secondary { width: auto; margin: 0; }
+
+.circular-card .circular-image {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  margin-top: 10px;
+  border-radius: 10px;
+  background: var(--primary-lighter);
+  cursor: zoom-in;
+}
+
+.circ-lightbox {
+  position: fixed; inset: 0;
+  background: #000;
+  z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+}
+.circ-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.circ-lightbox button.circ-lightbox-close {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: 14px;
+  width: 44px; height: 44px;
+  padding: 0; margin: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  box-shadow: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.circ-lightbox button.circ-lightbox-close:hover { background: rgba(255, 255, 255, 0.3); box-shadow: none; }
+
+/* سطر توقيع التعميم (بواسطة / آخر تعديل): أسفل البطاقة، نهاية السطر (يسار بالعربي)، صغير وباهت */
+.circular-card .circular-signature {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: end;
+}

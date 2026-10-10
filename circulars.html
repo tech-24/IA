@@ -68,6 +68,8 @@
         <label for="circularContentInput">نص التعميم</label>
         <textarea id="circularContentInput" style="min-height:140px"></textarea>
       </div>
+      <!-- خانة صورة التعميم (تُبنى بالـ JS من circulars.js) -->
+      <div id="circularImageField"></div>
       <div class="error" id="circularModalError"></div>
       <div class="modal-actions">
         <button id="saveCircularBtn">نشر</button>
@@ -86,6 +88,7 @@
 
   <script src="config.js"></script>
   <script src="auth.js"></script>
+  <script src="image-utils.js"></script>
   <script src="circulars.js"></script>
   <script src="bottom-nav.js"></script>
   <script>
@@ -126,6 +129,7 @@
           <div class="circular-date">${formatDate(c.created_at)}</div>
           <div class="circular-content collapsed">${escapeHtml(c.content)}</div>
           <div class="circular-more">اضغط لعرض المزيد...</div>
+          ${circularSignature(c) ? `<div class="circular-signature">${escapeHtml(circularSignature(c))}</div>` : ""}
         `;
 
         let expanded = false;
@@ -135,6 +139,25 @@
           const moreEl = card.querySelector(".circular-more");
           contentEl.classList.toggle("collapsed", !expanded);
           moreEl.textContent = expanded ? "إخفاء" : "اضغط لعرض المزيد...";
+
+          // الصورة (إن وُجدت): تظهر فقط والتعميم مفتوح، تحت النص. نبنيها عند أول فتح
+          // حتى لا يُحمَّل شيء من الشبكة والتعميم مطوي
+          if (c.image_url) {
+            let img = card.querySelector(".circular-image");
+            if (expanded && !img) {
+              img = document.createElement("img");
+              img.className = "circular-image";
+              img.alt = "صورة التعميم";
+              img.src = c.image_url;
+              img.addEventListener("error", () => img.remove());
+              img.addEventListener("click", (e) => {
+                e.stopPropagation(); // لا نطوي التعميم عند الضغط على الصورة
+                openCircularImageLightbox(c.image_url);
+              });
+              contentEl.insertAdjacentElement("afterend", img);
+            }
+            if (img) img.style.display = expanded ? "block" : "none";
+          }
 
           // أول ما يفتحه المفتش، نسجّله مقروء (upsert آمن حتى لو تكرر الضغط)
           if (isUnread && !myReadIds.includes(c.id)) {
@@ -169,10 +192,12 @@
     // -------------------------------------------------
     const circularModal = document.getElementById("circularModal");
     const circularModalError = document.getElementById("circularModalError");
+    const imageField = mountCircularImageField(document.getElementById("circularImageField"));
 
     document.getElementById("addCircularBtn").addEventListener("click", () => {
       document.getElementById("circularTitleInput").value = "";
       document.getElementById("circularContentInput").value = "";
+      imageField.reset();
       circularModalError.textContent = "";
       circularModal.style.display = "flex";
     });
@@ -189,8 +214,10 @@
       }
       const saveBtn = document.getElementById("saveCircularBtn");
       saveBtn.disabled = true; // يمنع النشر المكرر
+      const { newFile } = imageField.getState();
+      if (newFile) saveBtn.textContent = "جارٍ رفع الصورة...";
       try {
-        const created = await addCircular({ title, content });
+        const created = await saveCircularWithImage({ id: null, title, content, newFile, removeImage: false, oldImageUrl: null });
         allCirculars.unshift(created);
         // التعميم من كتابتك، فلا داعي لتظهر لك كغير مقروء
         try { await markCircularRead(created.id); myReadIds.push(created.id); } catch (e) {}
@@ -200,6 +227,7 @@
         circularModalError.textContent = e.message || "حدث خطأ أثناء النشر";
       } finally {
         saveBtn.disabled = false;
+        saveBtn.textContent = "نشر";
       }
     });
 

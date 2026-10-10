@@ -145,12 +145,9 @@
         const card = document.createElement("div");
         card.className = "category-card" + (tool.is_hidden ? " tool-hidden" : "");
         card.style.cursor = "pointer";
-        // أداة الزيارات: الضغط على البطاقة يفتحها فعليًا (تسجيل/عرض الزيارات)
-        // أي أداة ثانية (رابط/ملف): الضغط يفتح نافذة التعديل كما كان
-        card.addEventListener("click", () => {
-          if (visitTool) window.location.href = `visits.html?tool_id=${tool.id}`;
-          else openEditToolModal(tool);
-        });
+        // كل الأدوات (بما فيها الزيارات): الضغط على البطاقة يفتح نافذة الأداة (الاسم، الإخفاء، الأيقونة، الحذف).
+        // تصفح الزيارات وتعديلها وحذفها وتصديرها يتم من وضع المفتش (تبويب "جميع الزيارات")
+        card.addEventListener("click", () => openEditToolModal(tool));
 
         const visual = document.createElement("div");
         visual.className = "category-visual";
@@ -170,18 +167,6 @@
           badge.className = "tool-hidden-badge";
           badge.textContent = "مخفية";
           card.appendChild(badge);
-        }
-
-        // زر تعديل منفصل لأداة الزيارات فقط (لأن الضغط على بطاقتها يفتحها، مو يعدّلها)
-        if (visitTool) {
-          const editBtn = document.createElement("button");
-          editBtn.className = "secondary tool-edit-btn";
-          editBtn.textContent = "تعديل";
-          editBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            openEditToolModal(tool);
-          });
-          card.appendChild(editBtn);
         }
 
         toolsGrid.appendChild(card);

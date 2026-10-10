@@ -1351,3 +1351,6 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   font-weight: 500;
 }
 .insp-item.active { background: var(--primary-lighter); color: var(--primary); font-weight: 700; }
+
+/* أداة مخفية تظهر للمشرف/المالك فقط بصفحة أدوات المفتش: باهتة مع شارة "مخفية" */
+.tool-card.tool-hidden { opacity: 0.55; position: relative; }

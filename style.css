@@ -541,6 +541,8 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   font-size: 14px;
   color: var(--text);
   line-height: 1.7;
+  /* نحافظ على الأسطر الجديدة اللي كتبها المشرف (HTML يدمجها بسطر واحد افتراضيًا) */
+  white-space: pre-line;
 }
 /* الوضع المطوي: سطرين بس ثم نقاط */
 .circular-card .circular-content.collapsed {

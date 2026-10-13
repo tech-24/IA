@@ -175,6 +175,19 @@
     </div>
   </div>
 
+  <!-- سؤال تحديث تاريخ الزيارة: يظهر عند حفظ تعديل زيارة تحوّلت حالتها إلى "تمت الزيارة" -->
+  <div class="modal-overlay" id="updateDateModal" style="display:none">
+    <div class="modal-box">
+      <h3>تحديث تاريخ الزيارة</h3>
+      <p style="margin:0 0 6px;line-height:1.8">هل تريد تحديث تاريخ الزيارة ووقتها إلى الآن؟</p>
+      <p style="margin:0;font-size:13px;color:var(--text-muted)">التاريخ الحالي: <span id="updateDateCurrent"></span></p>
+      <div class="modal-actions">
+        <button id="updateDateYesBtn">نعم، حدّث إلى الآن</button>
+        <button class="secondary" id="updateDateNoBtn">لا، أبقِ التاريخ</button>
+      </div>
+    </div>
+  </div>
+
   <div class="bottom-nav-spacer"></div>
 
   <!-- ==================== الشريط السفلي ==================== -->
@@ -508,6 +521,31 @@
       const s = statuses.find((x) => x.id === statusId);
       return !!s && s.name === "لم تكتمل المدة";
     }
+    // الحالة "تمت الزيارة" (بالاسم، مثل حالة "لم تكتمل المدة")
+    function isDoneStatus(statusId) {
+      const s = statuses.find((x) => x.id === statusId);
+      return !!s && (s.name || "").trim() === "تمت الزيارة";
+    }
+
+    // نافذة السؤال: هل نحدّث تاريخ الزيارة ووقتها إلى الآن؟ ترجع true (نعم) أو false (لا، نبقيه)
+    function askUpdateVisitDate(currentIso) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById("updateDateModal");
+        const yesBtn = document.getElementById("updateDateYesBtn");
+        const noBtn = document.getElementById("updateDateNoBtn");
+        document.getElementById("updateDateCurrent").textContent = formatDateTime(currentIso);
+        const finish = (answer) => {
+          modal.style.display = "none";
+          yesBtn.onclick = null;
+          noBtn.onclick = null;
+          resolve(answer);
+        };
+        yesBtn.onclick = () => finish(true);
+        noBtn.onclick = () => finish(false);
+        modal.style.display = "flex";
+      });
+    }
+
     function updateLastVisitDateVisibility() {
       const show = isIncompleteDurationStatus(document.getElementById("visitStatus").value);
       document.getElementById("lastVisitDateField").style.display = show ? "flex" : "none";
@@ -653,7 +691,14 @@
       btn.disabled = true;
       try {
         if (editingVisitId) {
+          // زيارة كانت بحالة غير "تمت الزيارة" وتحوّلت إلى "تمت الزيارة": نسأل المفتش هل يحدّث تاريخها لليوم
+          const before = myVisits.find((v) => v.id === editingVisitId);
+          let refreshVisitDate = false;
+          if (before && !isDoneStatus(before.status_id) && isDoneStatus(status_id)) {
+            refreshVisitDate = await askUpdateVisitDate(before.visited_at);
+          }
           const updates = { establishment_name, license_number, street, status_id, area_id, location_url: manualLocationUrl, last_visit_date };
+          if (refreshVisitDate) updates.visited_at = new Date().toISOString();
           if (estFile) {
             updates.establishment_photo_path = await uploadVisitPhoto(estFile, editingVisitInspectorId, editingVisitId, "establishment");
             if (editingOldEstPath && editingOldEstPath !== updates.establishment_photo_path) {
@@ -674,7 +719,17 @@
           }
           const updated = await updateVisit(editingVisitId, updates);
           const index = myVisits.findIndex((v) => v.id === editingVisitId);
-          if (index !== -1) myVisits[index] = { ...myVisits[index], ...updated };
+          if (index !== -1) {
+            // نحدّث اسم الحالة والنطاق المعروضين أيضًا (الصف المرجَّع من القاعدة ما يحمل ربطهما)
+            myVisits[index] = {
+              ...myVisits[index],
+              ...updated,
+              visit_statuses: statuses.find((s) => s.id === updated.status_id) || null,
+              visit_areas: areas.find((a) => a.id === updated.area_id) || null,
+            };
+          }
+          // لو تغيّر وقت الزيارة، تتغيّر مكانها بالقائمة (الأحدث أولًا)
+          myVisits.sort((a, b) => new Date(b.visited_at) - new Date(a.visited_at));
           resetRegisterForm();
           showTab("mine");
           showMineToast("تم حفظ التعديل ✓");

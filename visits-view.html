@@ -77,6 +77,7 @@
         <div class="field">
           <label for="visitLicense">رقم الرخصة</label>
           <input type="text" id="visitLicense" />
+          <div class="license-last-visit" id="licenseLastVisit" style="display:none"></div>
         </div>
         <div class="field">
           <label for="visitStreet">المجمع / الشارع</label>
@@ -517,12 +518,51 @@
     });
 
     // -------------------------------------------------
+    // سطر "آخر زيارة كانت قبل N يوم" تحت رقم الرخصة
+    // يحسب من زيارات كل المفتشين على نفس الرخصة بنفس الأداة (دالة القاعدة last_visit_days_ago)،
+    // وأي فشل (مثلًا الدالة ما انضافت بعد، أو ما فيه نت) يخفي السطر بصمت بدون أي رسالة خطأ
+    // -------------------------------------------------
+    const licenseInput = document.getElementById("visitLicense");
+    const licenseLastVisitEl = document.getElementById("licenseLastVisit");
+    let licenseHintTimer = null;
+    let licenseHintSeq = 0; // رقم الطلب الأخير — نتجاهل أي رد قديم وصل بعد ما تغيّر الرقم
+
+    function hideLicenseLastVisit() {
+      clearTimeout(licenseHintTimer);
+      licenseHintSeq++;
+      licenseLastVisitEl.style.display = "none";
+      licenseLastVisitEl.textContent = "";
+    }
+
+    async function refreshLicenseLastVisit() {
+      const license = licenseInput.value.trim();
+      if (!license) { hideLicenseLastVisit(); return; }
+      const seq = ++licenseHintSeq;
+      try {
+        // عند تعديل زيارة نستثنيها هي نفسها من الحساب
+        const days = await fetchLastVisitDaysAgo(toolId, license, editingVisitId);
+        if (seq !== licenseHintSeq) return;
+        if (days === null) { hideLicenseLastVisit(); return; }
+        licenseLastVisitEl.textContent = days === 0 ? "آخر زيارة كانت اليوم" : "آخر زيارة كانت قبل " + days + " يوم";
+        licenseLastVisitEl.style.display = "block";
+      } catch (e) {
+        if (seq === licenseHintSeq) hideLicenseLastVisit();
+      }
+    }
+
+    licenseInput.addEventListener("input", () => {
+      hideLicenseLastVisit(); // السطر القديم يخص رقمًا غير الحالي
+      licenseHintTimer = setTimeout(refreshLicenseLastVisit, 500);
+    });
+
+    // -------------------------------------------------
     // تسجيل/تعديل زيارة
     // -------------------------------------------------
     function resetRegisterForm() {
       editingVisitId = null;
       document.getElementById("visitEstablishment").value = "";
       document.getElementById("visitLicense").value = "";
+      hideLicenseLastVisit();
       document.getElementById("visitStreet").value = "";
       estPhotoBox.reset();
       licPhotoBox.reset();
@@ -547,6 +587,8 @@
       editingOldLicPath = visit.license_photo_path;
       document.getElementById("visitEstablishment").value = visit.establishment_name;
       document.getElementById("visitLicense").value = visit.license_number || "";
+      hideLicenseLastVisit();
+      refreshLicenseLastVisit();
       document.getElementById("visitStreet").value = visit.street || "";
       estPhotoBox.reset();
       licPhotoBox.reset();

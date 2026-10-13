@@ -1415,3 +1415,11 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   color: #94a3b8;
   text-align: end;
 }
+
+/* سطر "آخر زيارة كانت قبل N يوم" تحت رقم الرخصة في نموذج تسجيل الزيارة */
+.license-last-visit {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+}

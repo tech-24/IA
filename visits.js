@@ -68,6 +68,20 @@ async function fetchVisits(toolId, { mineOnly, myId } = {}) {
   return data;
 }
 
+// كم يوم مضى على آخر زيارة لهذه الرخصة بنفس الأداة (من زيارات كل المفتشين)؟
+// ترجع رقمًا (0 = اليوم) أو null لو ما فيه زيارة سابقة.
+// الحساب كله بدالة القاعدة last_visit_days_ago (security definer) — ترجع عدد الأيام فقط
+// بدون أي تفاصيل عن زيارات المفتشين الثانيين. excludeVisitId: زيارة نستثنيها (عند تعديلها)
+async function fetchLastVisitDaysAgo(toolId, license, excludeVisitId) {
+  const { data, error } = await supabaseClient.rpc("last_visit_days_ago", {
+    p_tool_id: toolId,
+    p_license: license,
+    p_exclude_visit_id: excludeVisitId || null,
+  });
+  if (error) throw error;
+  return data === null || data === undefined ? null : Number(data);
+}
+
 // جلب بيانات مجموعة مستخدمين بمعرّفاتهم (اسم ثلاثي + بريد) — طلب مباشر من profiles
 // بدون الاعتماد على أي ربط تلقائي، فيشتغل بغض النظر عن تفاصيل المفاتيح الخارجية
 async function fetchProfilesByIds(ids) {

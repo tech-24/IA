@@ -1423,3 +1423,40 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   font-weight: 600;
   color: var(--primary);
 }
+
+/* ---------- قائمة اقتراحات الحي والمجمع/الشارع (تسجيل الزيارات) ---------- */
+.suggest-wrap { position: relative; }
+.suggest-wrap input { width: 100%; }
+.suggest-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+.suggest-list.up { top: auto; bottom: calc(100% + 4px); }
+.suggest-item {
+  padding: 11px 14px;
+  font-size: 15px;
+  color: var(--text);
+  cursor: pointer; /* مطلوب ليستجيب آيفون للنقر على العنصر */
+  border-bottom: 1px solid var(--border);
+}
+.suggest-item:last-child { border-bottom: none; }
+.suggest-item:hover, .suggest-item:active { background: var(--primary-light); }
+.suggest-head {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--primary-lighter);
+  border-bottom: 1px solid var(--border);
+}

@@ -88,15 +88,11 @@ function formatStampDate(d) {
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} – ${h12}:${p(d.getMinutes())}:${p(d.getSeconds())} ${suffix}`;
 }
 
-// تحويل الإحداثيات إلى عنوان عبر OpenStreetMap (Nominatim). ترجع { lines, neighborhood, street }:
-//   lines: أسطر عنوان الختم [الشارع مع رقم المبنى، "حي ...", المدينة والدولة]
-//   neighborhood: اسم الحي بدون كلمة "حي" (لتعبئة خانة الحي)
-//   street: اسم الشارع بدون رقم المبنى (لتعبئة خانة المجمع / الشارع)
-// عند أي فشل: lines مصفوفة فارغة، وneighborhood وstreet نصان فاضيان.
-// تُخزَّن النتيجة مؤقتًا لنفس الموقع لتخدم الختم وتعبئة الخانات وصورتي المنشأة والرخصة بطلب واحد.
+// تحويل الإحداثيات إلى أسطر عنوان عبر OpenStreetMap (Nominatim):
+// [الشارع مع رقم المبنى، "حي ...", المدينة والدولة]. عند أي فشل ترجع مصفوفة فارغة.
+// تُخزَّن النتيجة مؤقتًا لنفس الموقع حتى تخدم صورتي المنشأة والرخصة بطلب واحد.
 const _addressCache = new Map();
-const _EMPTY_ADDRESS = { lines: [], neighborhood: "", street: "" };
-function fetchAddressInfo(lat, lng, timeoutMs = 6000) {
+function fetchAddressLines(lat, lng, timeoutMs = 6000) {
   const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
   if (_addressCache.has(key)) return _addressCache.get(key);
 
@@ -108,7 +104,7 @@ function fetchAddressInfo(lat, lng, timeoutMs = 6000) {
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=ar`;
       const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) return { info: _EMPTY_ADDRESS, retry: false };
+      if (!res.ok) return { lines: [], retry: false };
       const a = (await res.json()).address || {};
 
       const road = [a.house_number, a.road].filter(Boolean).join(" ");
@@ -117,12 +113,9 @@ function fetchAddressInfo(lat, lng, timeoutMs = 6000) {
       const city = a.city || a.town || a.village || a.county || a.state || "";
       const place = [city, a.country].filter(Boolean).join("، ");
 
-      return {
-        info: { lines: [road, hood, place].filter(Boolean), neighborhood: hoodName, street: (a.road || "").trim() },
-        retry: false,
-      };
+      return { lines: [road, hood, place].filter(Boolean), retry: false };
     } catch (e) {
-      return { info: _EMPTY_ADDRESS, retry: !timedOut };
+      return { lines: [], retry: !timedOut };
     } finally {
       clearTimeout(timer);
     }
@@ -130,22 +123,17 @@ function fetchAddressInfo(lat, lng, timeoutMs = 6000) {
 
   const promise = (async () => {
     let r = await attempt();
-    if (r.info.lines.length === 0 && r.retry) {
+    if (r.lines.length === 0 && r.retry) {
       await new Promise((res) => setTimeout(res, 600));
       r = await attempt();
     }
-    return r.info;
+    return r.lines;
   })();
 
   _addressCache.set(key, promise);
   // لا نحتفظ بنتيجة فاشلة حتى تُعاد المحاولة لاحقًا
-  promise.then((info) => { if (info.lines.length === 0) _addressCache.delete(key); });
+  promise.then((lines) => { if (lines.length === 0) _addressCache.delete(key); });
   return promise;
-}
-
-// أسطر العنوان فقط (للختم على الصورة)
-function fetchAddressLines(lat, lng, timeoutMs = 6000) {
-  return fetchAddressInfo(lat, lng, timeoutMs).then((info) => info.lines);
 }
 
 // ترسم أسطر النص أعلى يمين الصورة (أبيض بظل خفيف) وترجع ملف JPEG جديد (مصغّر لأقصى 1280 بكسل)

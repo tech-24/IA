@@ -81,11 +81,17 @@
         </div>
         <div class="field">
           <label for="visitNeighborhood">الحي</label>
-          <input type="text" id="visitNeighborhood" />
+          <div class="suggest-wrap">
+            <input type="text" id="visitNeighborhood" autocomplete="off" />
+            <div class="suggest-list" id="neighborhoodSuggest" role="listbox" style="display:none"></div>
+          </div>
         </div>
         <div class="field">
           <label for="visitStreet">المجمع / الشارع</label>
-          <input type="text" id="visitStreet" />
+          <div class="suggest-wrap">
+            <input type="text" id="visitStreet" autocomplete="off" />
+            <div class="suggest-list" id="streetSuggest" role="listbox" style="display:none"></div>
+          </div>
         </div>
         <div class="field">
           <label>صورة المنشأة</label>
@@ -225,8 +231,6 @@
     let manualLocationUrl = null; // رابط موقع ملصق يدويًا — له الأولوية على إحداثيات GPS
     let capturedLat = null;
     let capturedLng = null;
-    let addressAutofillDone = false; // تعبئة الحي والشارع من الموقع تتم مرة وحدة لكل تسجيل
-    let formSeq = 0; // يتغيّر عند إعادة تعيين النموذج أو فتح زيارة للتعديل، لتجاهل أي رد قديم وصل متأخرًا
 
     // ألوان ثابتة تُعطى لكل حالة حسب ترتيبها (لتمييزها بصريًا بقائمة الزيارات)
     const STATUS_COLORS = ["#16a34a", "#b91c1c", "#d97706", "#64748b", "#7c3aed", "#0891b2"];
@@ -261,36 +265,12 @@
             capturedLng = pos.coords.longitude;
           }
           updateLocationUI();
-          // أول قراءة تصل: نعبّي الحي والشارع من عنوان الموقع (مرة وحدة)
-          if (!addressAutofillDone && editingVisitId === null && capturedLat !== null) {
-            autofillAddressFromLocation(capturedLat, capturedLng);
-          }
         },
         () => {
           updateLocationUI();
         },
         { enableHighAccuracy: true, maximumAge: 0 }
       );
-    }
-
-    // تعبئة خانتي الحي والمجمع/الشارع من عنوان الموقع (OpenStreetMap). اقتراح فقط:
-    //  - لا تمسح أي شي كتبه المفتش (تعبّي الخانة الفاضية فقط وقت وصول الرد)
-    //  - لا تعمل عند تعديل زيارة محفوظة، ولا مع الموقع اليدوي
-    //  - أي فشل أو عنوان ناقص: تبقى الخانات فاضية بصمت
-    async function autofillAddressFromLocation(lat, lng) {
-      if (addressAutofillDone || editingVisitId !== null || manualLocationUrl) return;
-      addressAutofillDone = true;
-      const seq = formSeq;
-      try {
-        const info = await fetchAddressInfo(lat, lng);
-        if (seq !== formSeq || editingVisitId !== null) return;
-        const hoodEl = document.getElementById("visitNeighborhood");
-        const streetEl = document.getElementById("visitStreet");
-        if (info.neighborhood && !hoodEl.value.trim()) hoodEl.value = info.neighborhood;
-        if (info.street && !streetEl.value.trim()) streetEl.value = info.street;
-      } catch (e) {
-        // تجاهل بصمت
-      }
     }
 
     function stopLocationWatch() {
@@ -625,12 +605,123 @@
     });
 
     // -------------------------------------------------
+    // اقتراحات خانتي "الحي" و"المجمع / الشارع" (قائمة منسدلة)
+    // المصدر: زيارات المفتش نفسه فقط (myVisits)، وفي النطاق المختار حاليًا بالنموذج؛ الأحدث أولًا.
+    // الكتابة الحرة تبقى متاحة دائمًا — القائمة اقتراح فقط.
+    // في خانة الشارع: الشوارع المسجّلة سابقًا مع الحي المكتوب تظهر أولًا
+    // -------------------------------------------------
+    const SUGGEST_MAX = 50;
+    function suggestClean(s) { return (s || "").trim().replace(/\s+/g, " "); }
+    // مفتاح منع التكرار: نفس النص بعد توحيد المسافات وحالة الأحرف (الإملاءات المختلفة تبقى خيارات منفصلة)
+    function suggestKey(s) { return suggestClean(s).toLowerCase(); }
+    // مفتاح المطابقة أثناء الكتابة فقط: يتسامح مع الهمزات والتاء المربوطة والألف المقصورة والتشكيل
+    function suggestMatchKey(s) {
+      return suggestKey(s)
+        .replace(/[أإآ]/g, "ا")
+        .replace(/ة/g, "ه")
+        .replace(/ى/g, "ي")
+        .replace(/[\u064B-\u0652\u0640]/g, "");
+    }
+
+    function collectSuggestions(field) {
+      const areaId = document.getElementById("visitArea").value;
+      const hoodKey = field === "street" ? suggestKey(document.getElementById("visitNeighborhood").value) : "";
+      const items = new Map(); // المفتاح -> { text, time, preferred }
+      myVisits.forEach((v) => {
+        if (v.id === editingVisitId) return; // الزيارة المعدَّلة لا تقترح قيمتها القديمة
+        if (areaId && v.area_id !== areaId) return;
+        const text = suggestClean(field === "street" ? v.street : v.neighborhood);
+        if (!text) return;
+        const key = suggestKey(text);
+        const time = new Date(v.visited_at).getTime() || 0;
+        const preferred = !!hoodKey && suggestKey(v.neighborhood) === hoodKey;
+        const cur = items.get(key);
+        if (!cur) {
+          items.set(key, { text, time, preferred });
+        } else {
+          if (time > cur.time) { cur.time = time; cur.text = text; }
+          if (preferred) cur.preferred = true;
+        }
+      });
+      return [...items.values()].sort((a, b) => (b.preferred - a.preferred) || (b.time - a.time));
+    }
+
+    function setupSuggest(inputId, listId, field) {
+      const input = document.getElementById(inputId);
+      const list = document.getElementById(listId);
+
+      // نفتح القائمة تحت الخانة، أو فوقها لو المساحة تحتها ضيقة (لوحة المفاتيح تغطي أسفل الشاشة)
+      function place() {
+        const r = input.getBoundingClientRect();
+        const vv = window.visualViewport;
+        const top = vv ? vv.offsetTop : 0;
+        // الحد السفلي المتاح: أسفل الشاشة المرئية (فوق لوحة المفاتيح) وفوق الشريط السفلي الثابت
+        const nav = document.querySelector(".bottom-nav");
+        const navTop = nav ? nav.getBoundingClientRect().top : window.innerHeight;
+        const bottom = Math.min(vv ? vv.offsetTop + vv.height : window.innerHeight, navTop);
+        const below = bottom - r.bottom - 12;
+        const above = r.top - top - 12;
+        const up = below < 150 && above > below;
+        list.classList.toggle("up", up);
+        list.style.maxHeight = Math.max(100, Math.min(240, up ? above : below)) + "px";
+      }
+      function isOpen() { return list.style.display !== "none"; }
+      function hide() { list.style.display = "none"; list.innerHTML = ""; }
+      function pick(text) { input.value = text; hide(); input.blur(); }
+
+      function show() {
+        const all = collectSuggestions(field);
+        const q = suggestMatchKey(input.value);
+        let shown = q ? all.filter((it) => suggestMatchKey(it.text).includes(q)) : all;
+        // الخانة تطابق خيارًا وحيدًا تمامًا: لا داعي للقائمة
+        if (shown.length === 1 && suggestKey(shown[0].text) === suggestKey(input.value)) shown = [];
+        shown = shown.slice(0, SUGGEST_MAX);
+        if (shown.length === 0) { hide(); return; }
+
+        list.innerHTML = "";
+        const grouped = shown.some((it) => it.preferred) && shown.some((it) => !it.preferred);
+        let lastGroup = null;
+        shown.forEach((it) => {
+          if (grouped && it.preferred !== lastGroup) {
+            const head = document.createElement("div");
+            head.className = "suggest-head";
+            head.textContent = it.preferred ? "في هذا الحي" : "أخرى في النطاق";
+            list.appendChild(head);
+          }
+          lastGroup = it.preferred;
+          const row = document.createElement("div");
+          row.className = "suggest-item";
+          row.setAttribute("role", "option");
+          row.textContent = it.text;
+          row.addEventListener("click", () => pick(it.text));
+          list.appendChild(row);
+        });
+        list.style.display = "block";
+        list.scrollTop = 0;
+        place();
+      }
+
+      // الضغط على عنصر لا يسحب التركيز من الخانة (وإلا تُغلق القائمة قبل الاختيار)
+      list.addEventListener("mousedown", (e) => e.preventDefault());
+      input.addEventListener("focus", show);
+      input.addEventListener("input", show);
+      input.addEventListener("blur", hide);
+      input.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+      const reposition = () => { if (isOpen()) place(); };
+      window.addEventListener("resize", reposition);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", reposition);
+        window.visualViewport.addEventListener("scroll", reposition);
+      }
+    }
+    setupSuggest("visitNeighborhood", "neighborhoodSuggest", "neighborhood");
+    setupSuggest("visitStreet", "streetSuggest", "street");
+
+    // -------------------------------------------------
     // تسجيل/تعديل زيارة
     // -------------------------------------------------
     function resetRegisterForm() {
       editingVisitId = null;
-      formSeq++;
-      addressAutofillDone = false;
       document.getElementById("visitEstablishment").value = "";
       document.getElementById("visitNeighborhood").value = "";
       document.getElementById("visitLicense").value = "";
@@ -654,8 +745,6 @@
     async function openEditVisit(visit) {
       stopLocationWatch(); // التعديل يستخدم الموقع المحفوظ أصلًا، ما يحتاج متابعة حية
       editingVisitId = visit.id;
-      formSeq++;
-      addressAutofillDone = true; // زيارة محفوظة: بياناتها موجودة، فلا تعبئة تلقائية
       editingVisitInspectorId = visit.inspector_id;
       editingOldEstPath = visit.establishment_photo_path;
       editingOldLicPath = visit.license_photo_path;

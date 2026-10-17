@@ -118,6 +118,18 @@
           <label for="visitArea">نطاق الزيارة</label>
           <select id="visitArea"></select>
         </div>
+        <div class="location-row" id="visitTimeRow">
+          <span class="location-hint" id="visitTimeHint">وقت الزيارة: تلقائي (وقت الحفظ)</span>
+          <button type="button" class="link-btn" id="editVisitTimeBtn">تعديل</button>
+          <button type="button" class="link-btn" id="resetVisitTimeBtn" style="display:none">رجوع للتلقائي</button>
+        </div>
+        <div class="field" id="visitTimeEditor" style="display:none">
+          <label for="visitDateInput">تاريخ الزيارة ووقتها</label>
+          <div style="display:flex;gap:8px">
+            <input type="date" id="visitDateInput" style="flex:1;min-width:0" />
+            <input type="time" id="visitClockInput" style="flex:1;min-width:0" />
+          </div>
+        </div>
         <div class="location-row">
           <span class="location-hint" id="locationHint">جارٍ تحديد الموقع...</span>
           <button type="button" class="link-btn" id="editLocationBtn">تعديل</button>
@@ -605,6 +617,48 @@
     });
 
     // -------------------------------------------------
+    // وقت الزيارة عند إنشاء زيارة جديدة: تلقائي (القاعدة تضعه لحظة الحفظ) ما لم يعدّله المفتش.
+    // لا نرسل visited_at إلا عند التعديل اليدوي، وغير ذلك يبقى السلوك كما هو.
+    // الصف كله مخفي في وضع تعديل زيارة محفوظة
+    // -------------------------------------------------
+    let visitTimeManual = false;
+    const visitDateEl = document.getElementById("visitDateInput");
+    const visitClockEl = document.getElementById("visitClockInput");
+
+    function updateVisitTimeUI() {
+      document.getElementById("visitTimeHint").textContent = visitTimeManual ? "وقت الزيارة: يدوي" : "وقت الزيارة: تلقائي (وقت الحفظ)";
+      document.getElementById("editVisitTimeBtn").style.display = visitTimeManual ? "none" : "inline";
+      document.getElementById("resetVisitTimeBtn").style.display = visitTimeManual ? "inline" : "none";
+      document.getElementById("visitTimeEditor").style.display = visitTimeManual ? "flex" : "none";
+    }
+    function resetVisitTime() {
+      visitTimeManual = false;
+      visitDateEl.value = "";
+      visitClockEl.value = "";
+      updateVisitTimeUI();
+    }
+    document.getElementById("editVisitTimeBtn").addEventListener("click", () => {
+      const now = new Date();
+      visitDateEl.max = toDateInputValue(now); // لا تاريخ مستقبلي
+      visitDateEl.value = toDateInputValue(now);
+      visitClockEl.value = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+      visitTimeManual = true;
+      updateVisitTimeUI();
+    });
+    document.getElementById("resetVisitTimeBtn").addEventListener("click", resetVisitTime);
+
+    // يقرأ الوقت اليدوي ويتحقق منه: يرجع { iso } أو { error }
+    function readManualVisitTime() {
+      const d = visitDateEl.value;
+      const t = visitClockEl.value;
+      if (!d || !t) return { error: "اختر تاريخ الزيارة ووقتها" };
+      const when = new Date(d + "T" + t); // بدون إزاحة زمنية = بتوقيت جهاز المفتش
+      if (isNaN(when.getTime())) return { error: "تاريخ الزيارة أو وقتها غير صحيح" };
+      if (when.getTime() > Date.now()) return { error: "لا يمكن اختيار وقت زيارة في المستقبل" };
+      return { iso: when.toISOString() };
+    }
+
+    // -------------------------------------------------
     // اقتراحات خانتي "الحي" و"المجمع / الشارع" (قائمة منسدلة)
     // المصدر: زيارات المفتش نفسه فقط (myVisits)، وفي النطاق المختار حاليًا بالنموذج؛ الأحدث أولًا.
     // الكتابة الحرة تبقى متاحة دائمًا — القائمة اقتراح فقط.
@@ -739,6 +793,8 @@
       document.getElementById("cancelEditVisitBtn").textContent = "إلغاء";
       document.getElementById("manualLocationField").style.display = "none";
       manualLocationUrl = null;
+      resetVisitTime();
+      document.getElementById("visitTimeRow").style.display = ""; // الصف يظهر عند الإنشاء فقط
       startLocationWatch();
     }
 
@@ -772,6 +828,8 @@
       capturedLng = visit.longitude;
       manualLocationUrl = visit.location_url || null;
       document.getElementById("manualLocationField").style.display = "none";
+      resetVisitTime();
+      document.getElementById("visitTimeRow").style.display = "none"; // وقت زيارة محفوظة لا يُعدَّل من هنا
       updateLocationUI();
       document.getElementById("registerError").textContent = "";
       document.getElementById("registerSuccess").textContent = "";
@@ -812,6 +870,16 @@
       if (!status_id || !area_id) {
         errorEl.textContent = "اختر حالة الزيارة ونطاقها";
         return;
+      }
+      // وقت الزيارة اليدوي (عند الإنشاء فقط)؛ غير ذلك تضعه القاعدة تلقائيًا لحظة الحفظ
+      let manualVisitedAt = null;
+      if (editingVisitId === null && visitTimeManual) {
+        const t = readManualVisitTime();
+        if (t.error) {
+          errorEl.textContent = t.error;
+          return;
+        }
+        manualVisitedAt = t.iso;
       }
 
       const btn = document.getElementById("saveVisitBtn");
@@ -885,6 +953,7 @@
             location_url: manualLocationUrl,
             establishment_photo_path,
             license_photo_path,
+            ...(manualVisitedAt ? { visited_at: manualVisitedAt } : {}),
           });
           myVisits.unshift({
             ...created,
@@ -892,6 +961,8 @@
             visit_areas: areas.find((a) => a.id === area_id) || null,
             profiles: { full_name: myProfile.full_name, email: myProfile.email },
           });
+          // الزيارة قد تكون بوقت سابق، فنرتّب القائمة (الأحدث أولًا)
+          myVisits.sort((a, b) => new Date(b.visited_at) - new Date(a.visited_at));
           resetRegisterForm();
           showTab("mine");
           showMineToast("تم حفظ الزيارة ✓");

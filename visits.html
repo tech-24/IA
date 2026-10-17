@@ -85,6 +85,10 @@
           <input type="text" id="visitLicense" />
         </div>
         <div class="field">
+          <label for="visitNeighborhood">الحي</label>
+          <input type="text" id="visitNeighborhood" />
+        </div>
+        <div class="field">
           <label for="visitStreet">المجمع / الشارع</label>
           <input type="text" id="visitStreet" />
         </div>
@@ -171,6 +175,7 @@
       <div class="visit-detail-row" id="detailLastVisitDateRow" style="display:none"><span>تاريخ آخر زيارة:</span><span id="detailLastVisitDate"></span></div>
       <div class="visit-detail-row"><span>النطاق:</span><span id="detailArea"></span></div>
       <div class="visit-detail-row"><span>رقم الرخصة:</span><span id="detailLicense"></span></div>
+      <div class="visit-detail-row"><span>الحي:</span><span id="detailNeighborhood"></span></div>
       <div class="visit-detail-row"><span>المجمع / الشارع:</span><span id="detailStreet"></span></div>
       <div class="visit-detail-row"><span>التاريخ والوقت:</span><span id="detailDate"></span></div>
       <div class="visit-detail-row" id="detailLocationRow"><span>الموقع:</span><a id="detailLocationLink" href="#" target="_blank">فتح الموقع</a></div>
@@ -416,6 +421,7 @@
       editingOldLicPath = visit.license_photo_path;
       document.getElementById("visitEstablishment").value = visit.establishment_name;
       document.getElementById("visitLicense").value = visit.license_number || "";
+      document.getElementById("visitNeighborhood").value = visit.neighborhood || "";
       document.getElementById("visitStreet").value = visit.street || "";
       estPhotoBox.reset();
       licPhotoBox.reset();
@@ -453,6 +459,7 @@
 
       const establishment_name = document.getElementById("visitEstablishment").value.trim();
       const license_number = document.getElementById("visitLicense").value.trim() || null;
+      const neighborhood = document.getElementById("visitNeighborhood").value.trim() || null;
       const street = document.getElementById("visitStreet").value.trim() || null;
       const status_id = document.getElementById("visitStatus").value || null;
       // التاريخ ينحفظ فقط لو الحالة المختارة فعليًا "لم تكتمل المدة"، وإلا يُرسل null دائمًا
@@ -476,7 +483,7 @@
       btn.disabled = true;
       try {
         if (editingVisitId) {
-          const updates = { establishment_name, license_number, street, status_id, area_id, location_url: manualLocationUrl, last_visit_date };
+          const updates = { establishment_name, license_number, neighborhood, street, status_id, area_id, location_url: manualLocationUrl, last_visit_date };
           if (estFile) {
             updates.establishment_photo_path = await uploadVisitPhoto(estFile, editingVisitInspectorId, editingVisitId, "establishment");
             if (editingOldEstPath && editingOldEstPath !== updates.establishment_photo_path) {
@@ -515,6 +522,7 @@
             inspector_id: myProfile.id,
             establishment_name,
             license_number,
+            neighborhood,
             street,
             status_id,
             area_id,
@@ -812,6 +820,7 @@
       }
       document.getElementById("detailArea").textContent = visit.visit_areas ? visit.visit_areas.name : "—";
       document.getElementById("detailLicense").textContent = visit.license_number || "—";
+      document.getElementById("detailNeighborhood").textContent = visit.neighborhood || "—";
       document.getElementById("detailStreet").textContent = visit.street || "—";
       document.getElementById("detailDate").textContent = formatDateTime(visit.visited_at);
 

@@ -152,6 +152,7 @@ async function exportVisitsToExcel(tool, visits, statuses, areas, includePhotos,
     { header: "الوقت", width: 11 },
     { header: "اسم المنشأة", width: 26 },
     { header: "رقم الرخصة", width: 16 },
+    { header: "الحي", width: 16 },
     { header: "المجمع / الشارع", width: 20 },
     { header: "الحالة", width: 16 },
     { header: "تاريخ آخر زيارة", width: 15 },
@@ -191,6 +192,7 @@ async function exportVisitsToExcel(tool, visits, statuses, areas, includePhotos,
         time,
         v.establishment_name,
         v.license_number || "",
+        v.neighborhood || "",
         v.street || "",
         statusName,
         v.last_visit_date ? v.last_visit_date.replaceAll("-", "/") : "",
@@ -204,11 +206,11 @@ async function exportVisitsToExcel(tool, visits, statuses, areas, includePhotos,
 
       const colorIdx = statusColorIndex[v.status_id];
       if (colorIdx !== undefined) {
-        const cell = row.getCell(7);
+        const cell = row.getCell(8); // عمود الحالة
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: STATUS_FILL_COLORS[colorIdx] } };
         cell.font = { color: { argb: STATUS_TEXT_COLORS[colorIdx] }, bold: true };
       }
-      if (locationUrl) row.getCell(10).font = { color: { argb: "FF3379BD" }, underline: true };
+      if (locationUrl) row.getCell(11).font = { color: { argb: "FF3379BD" }, underline: true };
 
       if (!includePhotos) continue; // بدون تضمين صور، نكتفي بصف البيانات النصية
 
@@ -216,7 +218,7 @@ async function exportVisitsToExcel(tool, visits, statuses, areas, includePhotos,
       if (v.establishment_photo_path) {
         const buffer = await fetchImageBuffer(v.establishment_photo_path);
         if (buffer) {
-          placeImageInCell(workbook, sheet, buffer, 10, row.number - 1);
+          placeImageInCell(workbook, sheet, buffer, 11, row.number - 1);
         }
         doneCount++;
         if (onProgress) onProgress(doneCount, totalPhotos);
@@ -226,7 +228,7 @@ async function exportVisitsToExcel(tool, visits, statuses, areas, includePhotos,
       if (v.license_photo_path) {
         const buffer = await fetchImageBuffer(v.license_photo_path);
         if (buffer) {
-          placeImageInCell(workbook, sheet, buffer, 11, row.number - 1);
+          placeImageInCell(workbook, sheet, buffer, 12, row.number - 1);
         }
         doneCount++;
         if (onProgress) onProgress(doneCount, totalPhotos);

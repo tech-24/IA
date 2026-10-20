@@ -59,9 +59,14 @@
         <button class="secondary" id="exportBtn">تصدير Excel</button>
       </div>
     </div>
-    <label class="ios-toggle on-light" style="margin:4px 0 2px">
-      <span class="toggle-label">تضمين صور المنشآت والرخص في التصدير</span>
-      <input type="checkbox" id="includePhotosToggle" checked />
+    <label class="ios-toggle on-light" style="margin:4px 0 2px;max-width:300px;justify-content:space-between">
+      <span class="toggle-label">تضمين صور المنشآت في التصدير</span>
+      <input type="checkbox" id="includeEstPhotosToggle" checked />
+      <span class="toggle-slider"></span>
+    </label>
+    <label class="ios-toggle on-light" style="margin:6px 0 2px;max-width:300px;justify-content:space-between">
+      <span class="toggle-label">تضمين صور الرخص في التصدير</span>
+      <input type="checkbox" id="includeLicPhotosToggle" checked />
       <span class="toggle-slider"></span>
     </label>
     <div class="export-status" id="exportStatus" style="display:none"></div>
@@ -647,9 +652,12 @@
       statusEl.textContent = "جارٍ تجهيز ملف التصدير...";
       try {
         const tool = { name: document.getElementById("toolTitle").textContent };
-        const includePhotos = document.getElementById("includePhotosToggle").checked;
+        const photoOptions = {
+          establishment: document.getElementById("includeEstPhotosToggle").checked,
+          license: document.getElementById("includeLicPhotosToggle").checked,
+        };
         const filterSummary = buildFilterSummary();
-        await exportVisitsToExcel(tool, visitsToExport, statuses, areas, includePhotos, filterSummary, (done, total) => {
+        await exportVisitsToExcel(tool, visitsToExport, statuses, areas, photoOptions, filterSummary, (done, total) => {
           statusEl.textContent = total > 0 ? `جارٍ تجهيز الصور... (${done} من ${total})` : "جارٍ تجهيز ملف التصدير...";
         });
         statusEl.textContent = "تم التصدير ✓";

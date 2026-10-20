@@ -46,11 +46,17 @@ async function fetchImageBuffer(path) {
 
 // -------------------------------------------------
 // تثبيت الصورة داخل الخلية: تتحرك وتتغير مع الصف (وتختفي عند إخفائه بالفلتر)
-// تُحسب أبعادها من أبعاد الصورة الفعلية لتبقى النسبة سليمة وتتوسّط الخلية
+// تُحسب أبعادها من أبعاد الصورة الفعلية لتبقى النسبة سليمة وتتوسّط الخلية.
+// الموضع يُكتب بوحدة EMU مباشرة (nativeCol/nativeColOff/...) لأن تحويل الإزاحة الكسرية في ExcelJS
+// يفترض عرض عمود وارتفاع صف غير الحقيقيين (عرض×10000) فيضغط الصورة أفقيًا ويقصّر ارتفاعها
 // ملاحظة: الفرز داخل إكسل لا يحرّك الصور مع صفوفها (قيد في إكسل نفسه)
 // -------------------------------------------------
-const CELL_PX_W = 117; // عرض عمود الصورة (16 حرفًا) تقريبًا بالبكسل
-const CELL_PX_H = 80;  // ارتفاع الصف (60 نقطة) بالبكسل
+const PHOTO_COL_WIDTH = 22;   // عرض عمودي الصورة (بوحدة إكسل)
+const PHOTO_ROW_HEIGHT = 105; // ارتفاع صف الزيارة عند تضمين الصور (نقطة)
+const EMU_PER_PX = 9525;
+const CELL_PX_W = Math.floor(PHOTO_COL_WIDTH * 7);            // عرض العمود بالبكسل (خط إكسل الافتراضي: 7 بكسل للحرف)
+const CELL_PX_H = Math.round((PHOTO_ROW_HEIGHT * 96) / 72);   // ارتفاع الصف بالبكسل
+const PHOTO_PAD_PX = 6;       // هامش بين الصورة وحدود الخلية
 
 function jpegSize(buffer) {
   try {
@@ -70,16 +76,35 @@ function jpegSize(buffer) {
 
 function placeImageInCell(workbook, sheet, buffer, col, rowIndex) {
   const imgId = workbook.addImage({ buffer, extension: "jpeg" });
-  const dims = jpegSize(buffer) || { width: 4, height: 3 };
-  const maxW = CELL_PX_W - 8, maxH = CELL_PX_H - 8;
+  const dims = jpegSize(buffer) || { width: 3, height: 4 };
+  const maxW = CELL_PX_W - PHOTO_PAD_PX * 2;
+  const maxH = CELL_PX_H - PHOTO_PAD_PX * 2;
   const scale = Math.min(maxW / dims.width, maxH / dims.height);
   const w = dims.width * scale, h = dims.height * scale;
   const ox = (CELL_PX_W - w) / 2, oy = (CELL_PX_H - h) / 2;
+  const emu = (px) => Math.round(px * EMU_PER_PX);
+
+  // نقطتا الصورة (أعلى-يمين وأسفل-يسار) داخل الخلية نفسها، بوحدة EMU
+  const tl = { nativeCol: col, nativeColOff: emu(ox), nativeRow: rowIndex, nativeRowOff: emu(oy) };
+  const br = { nativeCol: col, nativeColOff: emu(ox + w), nativeRow: rowIndex, nativeRowOff: emu(oy + h) };
+  // col/row (خلية كاملة) احتياط فقط لو تجاهلت المكتبة الحقول الأصلية
   sheet.addImage(imgId, {
-    tl: { col: col + ox / CELL_PX_W, row: rowIndex + oy / CELL_PX_H },
-    br: { col: col + (ox + w) / CELL_PX_W, row: rowIndex + (oy + h) / CELL_PX_H },
+    tl: { ...tl, col, row: rowIndex },
+    br: { ...br, col: col + 1, row: rowIndex + 1 },
     editAs: "twoCell",
   });
+
+  // تثبيت إضافي: نكتب الإزاحات الدقيقة مباشرة على نقطتي الصورة المُنشأة، حتى لو غيّرتها المكتبة أثناء الإنشاء
+  try {
+    const images = typeof sheet.getImages === "function" ? sheet.getImages() : [];
+    const range = images.length ? images[images.length - 1].range : null;
+    if (range && range.tl && range.br) {
+      Object.assign(range.tl, tl);
+      Object.assign(range.br, br);
+    }
+  } catch (e) {
+    // تجاهل بصمت — الصورة تبقى مثبّتة بما كتبناه عند الإنشاء
+  }
 }
 
 // -------------------------------------------------
@@ -87,12 +112,18 @@ function placeImageInCell(workbook, sheet, buffer, col, rowIndex) {
 // tool: صف الأداة { id, name }
 // visits: الزيارات المطلوب تصديرها — المفلترة فعليًا (نفس اللي ظاهر بالقائمة)
 // statuses / areas: كل حالات ونطاقات الأداة (بترتيبها، لتوليد أعمدة الملخص وألوان الحالات)
-// includePhotos: true = صور المنشأة والرخصة مدمجة داخل ملف Excel نفسه، false = بيانات نصية فقط
+// photoOptions: { establishment: boolean, license: boolean } — أي نوع صور يُدمج داخل ملف Excel نفسه
+//   (لكل نوع عمود مستقل يظهر فقط لو اختير؛ وبدون اختيار أي نوع يكون الملف بيانات نصية فقط).
+//   القيمة المنطقية القديمة ما تزال مقبولة: true = النوعان معًا، false = بدون صور
 // filterSummary: نص يوضّح الفلاتر الفعّالة وقت التصدير، يُكتب أعلى ورقة "ملخص"
 // onProgress(done, total): استدعاء اختياري لتحديث شريط تقدّم بالواجهة (يُستدعى فقط لو تضمين الصور مفعّل)
 // -------------------------------------------------
-async function exportVisitsToExcel(tool, visits, statuses, areas, includePhotos, filterSummary, onProgress) {
+async function exportVisitsToExcel(tool, visits, statuses, areas, photoOptions, filterSummary, onProgress) {
   const workbook = new ExcelJS.Workbook();
+  const opts = photoOptions && typeof photoOptions === "object" ? photoOptions : { establishment: !!photoOptions, license: !!photoOptions };
+  const withEstPhotos = !!opts.establishment;
+  const withLicPhotos = !!opts.license;
+  const includePhotos = withEstPhotos || withLicPhotos;
 
   // لون كل حالة حسب ترتيبها — نفس منطق الألوان المستخدم بعرض القائمة بالصفحة
   const statusColorIndex = {};
@@ -159,14 +190,17 @@ async function exportVisitsToExcel(tool, visits, statuses, areas, includePhotos,
     { header: "منفّذ الزيارة", width: 20 },
     { header: "الموقع", width: 14 },
   ];
-  if (includePhotos) {
-    AREA_COLUMNS.push({ header: "صورة المنشأة", width: 16 }, { header: "صورة الرخصة", width: 16 });
-  }
+  // أعمدة الصور بعد عمود "الموقع" (فهرسها يبدأ من 11 بدءًا من الصفر): لكل نوع مختار عمود بالترتيب
+  let nextPhotoCol = AREA_COLUMNS.length;
+  const estPhotoCol = withEstPhotos ? nextPhotoCol++ : -1;
+  const licPhotoCol = withLicPhotos ? nextPhotoCol++ : -1;
+  if (withEstPhotos) AREA_COLUMNS.push({ header: "صورة المنشأة", width: PHOTO_COL_WIDTH });
+  if (withLicPhotos) AREA_COLUMNS.push({ header: "صورة الرخصة", width: PHOTO_COL_WIDTH });
 
   let doneCount = 0;
-  const totalPhotos = includePhotos
-    ? visits.filter((v) => v.establishment_photo_path).length + visits.filter((v) => v.license_photo_path).length
-    : 0;
+  const totalPhotos =
+    (withEstPhotos ? visits.filter((v) => v.establishment_photo_path).length : 0) +
+    (withLicPhotos ? visits.filter((v) => v.license_photo_path).length : 0);
 
   for (const area of areas) {
     const areaVisits = (visitsByArea.get(area.id) || []).slice().sort((a, b) => new Date(a.visited_at) - new Date(b.visited_at));
@@ -199,10 +233,11 @@ async function exportVisitsToExcel(tool, visits, statuses, areas, includePhotos,
         inspector,
         locationUrl ? { text: "فتح الموقع", hyperlink: locationUrl } : "",
       ];
-      if (includePhotos) rowValues.push("", "");
+      if (withEstPhotos) rowValues.push("");
+      if (withLicPhotos) rowValues.push("");
 
       const row = sheet.addRow(rowValues);
-      if (includePhotos) row.height = 60;
+      if (includePhotos) row.height = PHOTO_ROW_HEIGHT;
 
       const colorIdx = statusColorIndex[v.status_id];
       if (colorIdx !== undefined) {
@@ -211,24 +246,28 @@ async function exportVisitsToExcel(tool, visits, statuses, areas, includePhotos,
         cell.font = { color: { argb: STATUS_TEXT_COLORS[colorIdx] }, bold: true };
       }
       if (locationUrl) row.getCell(11).font = { color: { argb: "FF3379BD" }, underline: true };
+      // كل خلايا الصف (بما فيها عمودا الصور الفاضيان) بتوسيط عمودي
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.alignment = { ...(cell.alignment || {}), vertical: "middle" };
+      });
 
       if (!includePhotos) continue; // بدون تضمين صور، نكتفي بصف البيانات النصية
 
       // صورة المنشأة: تُدمج في الإكسل (تظهر مصغّرة بالخلية والصورة الأصلية محفوظة داخل الملف)
-      if (v.establishment_photo_path) {
+      if (withEstPhotos && v.establishment_photo_path) {
         const buffer = await fetchImageBuffer(v.establishment_photo_path);
         if (buffer) {
-          placeImageInCell(workbook, sheet, buffer, 11, row.number - 1);
+          placeImageInCell(workbook, sheet, buffer, estPhotoCol, row.number - 1);
         }
         doneCount++;
         if (onProgress) onProgress(doneCount, totalPhotos);
       }
 
       // صورة الرخصة: نفس الفكرة
-      if (v.license_photo_path) {
+      if (withLicPhotos && v.license_photo_path) {
         const buffer = await fetchImageBuffer(v.license_photo_path);
         if (buffer) {
-          placeImageInCell(workbook, sheet, buffer, 12, row.number - 1);
+          placeImageInCell(workbook, sheet, buffer, licPhotoCol, row.number - 1);
         }
         doneCount++;
         if (onProgress) onProgress(doneCount, totalPhotos);
@@ -258,6 +297,7 @@ function styleHeaderRow(row) {
   row.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND_COLOR_ARGB } };
     cell.font = { color: { argb: "FFFFFFFF" }, bold: true };
+    cell.alignment = { ...(cell.alignment || {}), vertical: "middle" };
   });
   row.worksheet.views = [{ rightToLeft: true, state: "frozen", ySplit: row.number }];
 }

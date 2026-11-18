@@ -205,3 +205,38 @@ async function deleteAllVisitPhotosForTool(toolId) {
     // تجاهل بصمت — حذف صف الأداة أهم وما نوقفه بسبب فشل حذف بعض الصور
   }
 }
+
+// -------------------------------------------------
+// فلتر الحي (مشترك بين صفحة المفتش وصفحة المشرف)
+// الحي نص حر، فنوحّد المسافات وحالة الأحرف للمطابقة، والإملاءات المختلفة تبقى خيارات منفصلة
+// -------------------------------------------------
+function neighborhoodClean(s) {
+  return (s || "").trim().replace(/\s+/g, " ");
+}
+
+function neighborhoodKey(s) {
+  return neighborhoodClean(s).toLowerCase();
+}
+
+// تعبئة قائمة الأحياء من الزيارات المحمّلة (أحياء فريدة مرتبة أبجديًا) مع الإبقاء على الاختيار الحالي لو لسا موجود
+function fillNeighborhoodFilter(select, visits) {
+  const current = select.value;
+  const seen = new Map();
+  visits.forEach((v) => {
+    const label = neighborhoodClean(v.neighborhood);
+    if (label && !seen.has(label.toLowerCase())) seen.set(label.toLowerCase(), label);
+  });
+  const items = [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1], "ar"));
+  select.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "كل الأحياء";
+  select.appendChild(all);
+  items.forEach(([key, label]) => {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = label;
+    select.appendChild(opt);
+  });
+  select.value = seen.has(current) ? current : "";
+}

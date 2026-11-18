@@ -154,6 +154,7 @@
         <div class="visit-filters-row">
           <select id="filterArea"><option value="">كل النطاقات</option></select>
           <select id="filterStatus"><option value="">كل الحالات</option></select>
+          <select id="filterNeighborhood"><option value="">كل الأحياء</option></select>
           <!-- القائمة الأصلية مخفية وتبقى مصدر القيمة؛ الزر يفتح نافذة فيها بحث -->
           <select id="filterInspector" style="display:none"><option value="">كل المفتشين</option></select>
           <button type="button" class="period-btn" id="inspectorBtn" style="min-width:110px;justify-content:space-between"></button>
@@ -198,7 +199,7 @@
   <script src="auth.js"></script>
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
-  <script src="visits.js"></script>
+  <script src="visits.js?v=2"></script>
   <script src="date-range-picker.js"></script>
   <script src="export.js"></script>
   <script>
@@ -602,11 +603,13 @@
       const filterAreaId = document.getElementById("filterArea").value;
       const filterStatusId = document.getElementById("filterStatus").value;
       const filterInspectorId = document.getElementById("filterInspector").value;
+      const filterHood = document.getElementById("filterNeighborhood").value;
       const { from: dateFrom, to: dateTo } = resolvePeriodRange();
 
       return allVisits.filter((v) => {
         if (filterAreaId && v.area_id !== filterAreaId) return false;
         if (filterStatusId && v.status_id !== filterStatusId) return false;
+        if (filterHood && neighborhoodKey(v.neighborhood) !== filterHood) return false;
         if (filterInspectorId && v.inspector_id !== filterInspectorId) return false;
         if (dateFrom || dateTo) {
           const visitDay = formatDateOnly(v.visited_at).replaceAll("/", "-"); // YYYY-MM-DD للمقارنة النصية السليمة
@@ -635,7 +638,10 @@
       const inspectorOpt = inspectorId ? [...document.getElementById("filterInspector").options].find((o) => o.value === inspectorId) : null;
       const inspectorName = inspectorId ? (inspectorOpt ? inspectorOpt.textContent : "—") : "الكل";
 
-      return `الفترة: ${period} | النطاق: ${areaName} | الحالة: ${statusName} | المفتش: ${inspectorName}`;
+      const hoodSelect = document.getElementById("filterNeighborhood");
+      const hoodName = hoodSelect.value ? hoodSelect.options[hoodSelect.selectedIndex].textContent : "الكل";
+
+      return `الفترة: ${period} | النطاق: ${areaName} | الحالة: ${statusName} | الحي: ${hoodName} | المفتش: ${inspectorName}`;
     }
 
     document.getElementById("exportBtn").addEventListener("click", async () => {
@@ -673,6 +679,7 @@
     });
 
     function renderMonths() {
+      fillNeighborhoodFilter(document.getElementById("filterNeighborhood"), allVisits); // الأحياء الموجودة بالزيارات (تتحدث بعد الإضافة والتعديل والحذف)
       const filtered = getFilteredVisits();
       const groups = {};
       filtered.forEach((v) => {
@@ -734,6 +741,7 @@
     document.getElementById("visitSearchInput").addEventListener("input", renderMonths);
     document.getElementById("filterArea").addEventListener("change", renderMonths);
     document.getElementById("filterStatus").addEventListener("change", renderMonths);
+    document.getElementById("filterNeighborhood").addEventListener("change", renderMonths);
     document.getElementById("filterInspector").addEventListener("change", renderMonths);
 
     // -------------------------------------------------

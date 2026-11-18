@@ -164,6 +164,7 @@
         <div class="visit-filters-row">
           <select id="filterArea"><option value="">كل النطاقات</option></select>
           <select id="filterStatus"><option value="">كل الحالات</option></select>
+          <select id="filterNeighborhood"><option value="">كل الأحياء</option></select>
         </div>
         <div id="monthsList"></div>
       </div>
@@ -224,7 +225,7 @@
   <script src="auth.js"></script>
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
-  <script src="visits.js"></script>
+  <script src="visits.js?v=2"></script>
   <script src="date-range-picker.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
@@ -1018,11 +1019,13 @@
       const query = document.getElementById("visitSearchInput").value.trim().toLowerCase();
       const filterAreaId = document.getElementById("filterArea").value;
       const filterStatusId = document.getElementById("filterStatus").value;
+      const filterHood = document.getElementById("filterNeighborhood").value;
       const { from: dateFrom, to: dateTo } = resolvePeriodRange();
 
       return myVisits.filter((v) => {
         if (filterAreaId && v.area_id !== filterAreaId) return false;
         if (filterStatusId && v.status_id !== filterStatusId) return false;
+        if (filterHood && neighborhoodKey(v.neighborhood) !== filterHood) return false;
         if (dateFrom || dateTo) {
           const visitDay = formatDateOnly(v.visited_at).replaceAll("/", "-");
           if (dateFrom && visitDay < dateFrom) return false;
@@ -1037,6 +1040,7 @@
     }
 
     function renderMonths() {
+      fillNeighborhoodFilter(document.getElementById("filterNeighborhood"), myVisits); // الأحياء الموجودة بزياراتي (تتحدث بعد الإضافة والتعديل والحذف)
       const filtered = getFilteredVisits();
       const groups = {};
       filtered.forEach((v) => {
@@ -1098,6 +1102,7 @@
     document.getElementById("visitSearchInput").addEventListener("input", renderMonths);
     document.getElementById("filterArea").addEventListener("change", renderMonths);
     document.getElementById("filterStatus").addEventListener("change", renderMonths);
+    document.getElementById("filterNeighborhood").addEventListener("change", renderMonths);
     createDateRangePicker(document.getElementById("periodBtn"), periodState, (state) => {
       periodState = state;
       renderMonths();

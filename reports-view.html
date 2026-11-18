@@ -217,7 +217,6 @@
       <div class="modal-actions wrap">
         <button id="rdPdfBtn">تنزيل PDF</button>
         <button class="secondary" id="rdShareBtn" style="display:none">مشاركة</button>
-        <button class="secondary" id="rdTplBtn">على النموذج الأصلي (تجريبي)</button>
       </div>
       <div class="modal-actions" style="margin-top:10px">
         <button class="secondary" id="rdDeleteBtn" style="display:none;color:#b91c1c">حذف</button>
@@ -238,8 +237,8 @@
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="tools.js"></script>
-  <script src="reports.js"></script>
-  <script src="report-pdf.js"></script>
+  <script src="reports.js?v=2"></script>
+  <script src="report-pdf.js?v=3"></script>
   <script src="date-range-picker.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
@@ -725,12 +724,10 @@
     const rdError = document.getElementById("rdError");
     const rdPdfBtn = document.getElementById("rdPdfBtn");
     const rdShareBtn = document.getElementById("rdShareBtn");
-    const rdTplBtn = document.getElementById("rdTplBtn");
 
     function setDetailBusy(busy) {
       rdPdfBtn.disabled = busy;
       rdShareBtn.disabled = busy;
-      rdTplBtn.disabled = busy;
     }
     function resetShareButton() {
       pendingShare = null;
@@ -760,6 +757,7 @@
       document.getElementById("rdDeleteBtn").style.display = isAdmin ? "" : "none";
       rdShareBtn.style.display = navigator.share ? "" : "none";
       document.getElementById("reportDetailModal").style.display = "flex";
+      prefetchReportPdfAssets(); // نجهّز المكتبة والنموذج بالخلفية حتى يكون التنزيل والمشاركة سريعين
 
       // التواقيع لا تُجلب مع القائمة (ثقيلة)، فنجلبها هنا لو ناقصة
       try {
@@ -809,26 +807,6 @@
         if (detailReport === target) rdError.textContent = e.message || "تعذّر إنشاء ملف PDF";
       } finally {
         rdPdfBtn.textContent = oldText;
-        setDetailBusy(false);
-      }
-    });
-
-    // تجريبي: نفس المحضر لكن مكتوب مباشرة على ملف النموذج الأصلي (report-template.pdf)
-    rdTplBtn.addEventListener("click", async () => {
-      rdError.textContent = "";
-      const target = detailReport;
-      setDetailBusy(true);
-      const oldText = rdTplBtn.textContent;
-      rdTplBtn.textContent = "جارٍ تجهيز الملف...";
-      try {
-        const full = await ensureFullReport();
-        const file = await getReportTemplatePdfFile(full);
-        downloadReportPdfFile(file);
-        if (detailReport === target && file.rtNotes && file.rtNotes.length) rdError.textContent = "تنبيه: " + file.rtNotes.join("، ");
-      } catch (e) {
-        if (detailReport === target) rdError.textContent = e.message || "تعذّر إنشاء ملف PDF";
-      } finally {
-        rdTplBtn.textContent = oldText;
         setDetailBusy(false);
       }
     });
@@ -899,7 +877,6 @@
         await deleteReport(target.id);
         allReports = allReports.filter((x) => x.id !== target.id);
         reportPdfCache.delete(target.id);
-        reportPdfCache.delete(target.id + ":tpl");
         refreshInspectorOptions();
         document.getElementById("reportDetailModal").style.display = "none";
         detailReport = null;

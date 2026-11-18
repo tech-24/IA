@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <link rel="icon" href="icon.png" />
+  <meta name="apple-mobile-web-app-title" content="مساعد المفتش" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json" />
+  <title>المحاضر</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://twbatrsenepuaylyiqsq.supabase.co" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* عناصر خاصة بأداة المحاضر */
+    .report-auto-box {
+      background: var(--primary-lighter);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      line-height: 1.9;
+    }
+    .report-auto-box .report-auto-label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+    .report-auto-box .report-auto-value { font-weight: 700; color: var(--text); }
+    .report-section-title { margin: 22px 0 10px; font-size: 15px; font-weight: 700; color: var(--primary-dark); }
+    .report-hint { font-size: 12px; color: var(--text-muted); margin: -4px 0 12px; line-height: 1.7; }
+    .report-char-count { font-size: 12px; color: var(--text-muted); text-align: left; }
+    .type-card {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      width: 100%; text-align: right; margin-bottom: 10px;
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 16px 14px; font-size: 16px; font-weight: 600; font-family: inherit;
+      box-shadow: var(--shadow-sm);
+    }
+    .type-card:hover { background: var(--primary-lighter); box-shadow: var(--shadow-sm); }
+    .sig-box { position: relative; border: 1px dashed #94a3b8; border-radius: var(--radius-sm); background: #fff; }
+    .sig-canvas { display: block; width: 100%; aspect-ratio: 5 / 2; touch-action: none; cursor: crosshair; border-radius: var(--radius-sm); }
+    .sig-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 15px; pointer-events: none; }
+    .sig-box.has-ink .sig-hint { display: none; }
+    .sig-clear { position: absolute; top: 4px; left: 8px; font-size: 13px; }
+    .rd-block { padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .rd-block .rd-label { color: var(--text-muted); margin-bottom: 4px; }
+    .rd-block .rd-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
+    .rd-sigs { display: flex; gap: 10px; margin-top: 12px; }
+    .rd-sig { flex: 1; text-align: center; font-size: 12px; color: var(--text-muted); }
+    .rd-sig img { display: block; width: 100%; height: 70px; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-bottom: 4px; }
+    .modal-actions.wrap { flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <header>
+    <button id="hamburgerBtn" class="hamburger-btn" aria-label="القائمة">☰</button>
+    <h1>المحاضر</h1>
+    <div class="user-info">
+      <button id="backBtn" class="icon-back-btn" aria-label="رجوع">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+      </button>
+    </div>
+  </header>
+
+<div class="side-drawer-overlay" id="drawerOverlay" style="display:none"></div>
+<nav class="side-drawer" id="sideDrawer">
+  <button id="closeDrawerBtn" class="close-drawer-btn" aria-label="إغلاق">✕</button>
+  <a href="index.html"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"></path><path d="M5 10v10h14V10"></path></svg></span> الصفحة الرئيسية</a>
+  <button class="drawer-link" id="syncBtn"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span> مزامنة</button>
+  <a href="account.html"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span> حسابي</a>
+  <a href="users.html" id="usersManageLink" style="display:none"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span> إدارة المستخدمين</a>
+  <a href="about.html"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span> حول مساعد المفتش</a>
+  <button class="drawer-link logout-link" id="drawerLogoutBtn"><span class="drawer-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></span> تسجيل الخروج</button>
+</nav>
+<script>
+  document.getElementById("hamburgerBtn").addEventListener("click", () => {
+    document.getElementById("drawerOverlay").style.display = "block";
+    document.getElementById("sideDrawer").classList.add("open");
+  });
+  function closeSideDrawer() {
+    document.getElementById("drawerOverlay").style.display = "none";
+    document.getElementById("sideDrawer").classList.remove("open");
+  }
+  document.getElementById("closeDrawerBtn").addEventListener("click", closeSideDrawer);
+  document.getElementById("drawerOverlay").addEventListener("click", closeSideDrawer);
+  document.getElementById("syncBtn").addEventListener("click", () => location.reload());
+  document.getElementById("drawerLogoutBtn").addEventListener("click", () => logout());
+</script>
+
+  <div class="main" style="padding-bottom:8px">
+    <h2 id="toolTitle" style="margin:16px 0 12px"></h2>
+
+    <!-- تنبيه عدم وجود اسم ثلاثي — يحجب التسجيل لحين إضافته (الاسم يظهر بالمحضر وتوقيعه) -->
+    <div id="noNameNotice" style="display:none">
+      <p style="color:#b91c1c;font-size:14px;margin-bottom:10px">أضف اسمك الثلاثي أولاً قبل تسجيل المحاضر.</p>
+      <a href="account.html" style="display:inline-block"><button type="button">فتح صفحة حسابي</button></a>
+    </div>
+
+    <div id="reportsWrap" style="display:none">
+
+      <!-- ==================== قائمة المحاضر ==================== -->
+      <div id="listView">
+        <button id="newReportBtn" style="width:100%;margin-bottom:12px">+ تسجيل محضر</button>
+        <div class="success" id="listToast"></div>
+        <div class="field">
+          <input type="text" id="reportSearchInput" placeholder="ابحث باسم الجهة أو الموقع..." />
+        </div>
+        <div class="visit-filters-row">
+          <button type="button" class="period-btn" id="periodBtn"></button>
+        </div>
+        <div class="visit-filters-row">
+          <select id="filterType"><option value="">كل الأنواع</option></select>
+          <!-- فلتر المراقب يظهر للمشرف والمالك فقط -->
+          <select id="filterInspector" style="display:none"><option value="">كل المراقبين</option></select>
+          <button type="button" class="period-btn" id="inspectorBtn" style="display:none;min-width:110px;justify-content:space-between"></button>
+        </div>
+        <div id="monthsList"></div>
+      </div>
+
+      <!-- ==================== اختيار نوع المحضر ==================== -->
+      <div id="typeView" style="display:none">
+        <h3 style="margin:0 0 14px;color:var(--primary-dark)">اختر نوع المحضر</h3>
+        <div id="typeList"></div>
+        <button class="secondary" id="typeCancelBtn" style="width:100%">إلغاء</button>
+      </div>
+
+      <!-- ==================== نموذج محضر إثبات واقعة ==================== -->
+      <div id="formView" style="display:none">
+        <h3 id="formTypeTitle" style="margin:0 0 12px;color:var(--primary-dark)"></h3>
+
+        <div class="report-auto-box">
+          <div class="report-auto-label">التاريخ والوقت (تلقائي ولا يمكن تعديله)</div>
+          <div class="report-auto-value" id="autoWhen"></div>
+          <div class="report-auto-value" id="autoHijri"></div>
+        </div>
+
+        <div class="field">
+          <label for="rSector">قطاع المراقب</label>
+          <select id="rSector"></select>
+        </div>
+        <div class="field">
+          <label for="rEntity">الجهة / الفرع</label>
+          <input type="text" id="rEntity" maxlength="200" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="rLocation">الموقع</label>
+          <input type="text" id="rLocation" maxlength="200" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="rReasons">أسباب منع المراقب من الدخول</label>
+          <textarea id="rReasons" rows="4" maxlength="500"></textarea>
+          <div class="report-char-count" id="reasonsCount" dir="ltr">0 / 500</div>
+        </div>
+
+        <div class="report-section-title">ممثل الجهة</div>
+        <label class="ios-toggle on-light" style="margin:0 0 6px;justify-content:space-between">
+          <span class="toggle-label">رفض التوقيع أو إعطاء بياناته</span>
+          <input type="checkbox" id="rRepRefused" />
+          <span class="toggle-slider"></span>
+        </label>
+        <div class="report-hint" id="repRefusedHint" style="display:none">سيُكتب بالمحضر أن ممثل الجهة رفض التوقيع. اكتب الاسم والوظيفة فقط إذا زوّدك بهما.</div>
+        <div class="field" style="margin-top:10px">
+          <label for="rRepName">الاسم</label>
+          <input type="text" id="rRepName" maxlength="120" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="rRepJob">الوظيفة</label>
+          <input type="text" id="rRepJob" maxlength="120" autocomplete="off" />
+        </div>
+        <div class="field" id="repSigField">
+          <label>توقيع ممثل الجهة</label>
+          <div class="sig-box" id="repSigBox">
+            <canvas class="sig-canvas" id="repSigCanvas" width="600" height="240"></canvas>
+            <div class="sig-hint">وقّع داخل المربع</div>
+            <button type="button" class="link-btn sig-clear" id="repSigClear">مسح</button>
+          </div>
+        </div>
+
+        <div class="report-section-title">مراقب القطاع</div>
+        <div class="field">
+          <label>الاسم</label>
+          <input type="text" id="rInspectorName" readonly />
+        </div>
+        <div class="field">
+          <label>توقيع المراقب</label>
+          <div class="sig-box" id="inspSigBox">
+            <canvas class="sig-canvas" id="inspSigCanvas" width="600" height="240"></canvas>
+            <div class="sig-hint">وقّع داخل المربع</div>
+            <button type="button" class="link-btn sig-clear" id="inspSigClear">مسح</button>
+          </div>
+        </div>
+
+        <div class="error" id="formError"></div>
+        <button id="saveReportBtn">حفظ المحضر</button>
+        <button class="secondary" id="cancelReportBtn">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== نافذة تفاصيل المحضر ==================== -->
+  <div class="modal-overlay" id="reportDetailModal" style="display:none">
+    <div class="modal-box">
+      <h3 id="rdTitle"></h3>
+      <div class="visit-detail-row"><span>النوع:</span><span id="rdType"></span></div>
+      <div class="visit-detail-row"><span>التاريخ والوقت:</span><span id="rdWhen"></span></div>
+      <div class="visit-detail-row"><span>الموافق:</span><span id="rdHijri"></span></div>
+      <div class="visit-detail-row"><span>القطاع:</span><span id="rdSector"></span></div>
+      <div class="visit-detail-row"><span>الموقع:</span><span id="rdLocation"></span></div>
+      <div class="rd-block"><div class="rd-label">أسباب المنع:</div><div class="rd-text" id="rdReasons"></div></div>
+      <div class="visit-detail-row"><span>المراقب:</span><span id="rdInspector"></span></div>
+      <div class="visit-detail-row"><span>ممثل الجهة:</span><span id="rdRep"></span></div>
+      <div class="rd-sigs" id="rdSigs"></div>
+      <div class="error" id="rdError" style="margin-top:10px"></div>
+      <div class="modal-actions wrap">
+        <button id="rdPdfBtn">تنزيل PDF</button>
+        <button class="secondary" id="rdShareBtn" style="display:none">مشاركة</button>
+      </div>
+      <div class="modal-actions" style="margin-top:10px">
+        <button class="secondary" id="rdDeleteBtn" style="display:none;color:#b91c1c">حذف</button>
+        <button class="secondary" id="rdCloseBtn">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav-spacer"></div>
+
+  <!-- ==================== الشريط السفلي ==================== -->
+  <nav class="bottom-nav">
+    <a href="index.html"><span class="nav-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg></span>البنود</a>
+    <a href="circulars.html"><span class="nav-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></span>تعاميم</a>
+    <a href="tools.html" class="active"><span class="nav-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span>أدوات مساعدة</a>
+  </nav>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="tools.js"></script>
+  <script src="reports.js"></script>
+  <script src="report-pdf.js"></script>
+  <script src="date-range-picker.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const toolId = urlParams.get("tool_id");
+
+    document.getElementById("backBtn").addEventListener("click", () => window.history.back());
+
+    let myProfile = null;
+    let isAdmin = false;
+    let allReports = [];
+    let currentType = null; // مفتاح نوع المحضر المفتوح بالنموذج
+    let formOpenedAt = null; // لحظة فتح النموذج — هي وقت المحضر وتاريخه (ثابت ولا يتعدل)
+
+    // ألوان شارات الأنواع (حسب ترتيب النوع)
+    const TYPE_COLORS = ["#b45309", "#0891b2", "#7c3aed", "#16a34a", "#b91c1c"];
+    function typeColor(key) {
+      const i = REPORT_TYPES.findIndex((t) => t.key === key);
+      return TYPE_COLORS[i >= 0 ? i % TYPE_COLORS.length : 0];
+    }
+
+    // -------------------------------------------------
+    // التنقل بين الشاشات: القائمة / اختيار النوع / النموذج
+    // -------------------------------------------------
+    function showView(name) {
+      document.getElementById("listView").style.display = name === "list" ? "block" : "none";
+      document.getElementById("typeView").style.display = name === "type" ? "block" : "none";
+      document.getElementById("formView").style.display = name === "form" ? "block" : "none";
+      window.scrollTo(0, 0);
+      if (name === "list") renderMonths();
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const el = document.getElementById("listToast");
+      el.textContent = msg;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.textContent = ""; }, 2500);
+    }
+
+    // -------------------------------------------------
+    // لوحة التوقيع (رسم بالإصبع أو القلم أو الفأرة)
+    // الدقة الداخلية ثابتة 600×240، والإحداثيات تُحوَّل من حجم العرض الفعلي
+    // -------------------------------------------------
+    function createSignaturePad(canvas, box, clearBtn) {
+      const ctx = canvas.getContext("2d");
+      let drawing = false;
+      let dirty = false;
+      let last = null;
+      let prevMid = null;
+
+      function style() {
+        ctx.lineWidth = 3.2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#111827";
+        ctx.fillStyle = "#111827";
+      }
+      function pos(e) {
+        const r = canvas.getBoundingClientRect();
+        return { x: ((e.clientX - r.left) * canvas.width) / r.width, y: ((e.clientY - r.top) * canvas.height) / r.height };
+      }
+      function clear() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        dirty = false;
+        drawing = false;
+        box.classList.remove("has-ink");
+      }
+
+      canvas.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* بعض المتصفحات لا تدعمه */ }
+        style();
+        drawing = true;
+        last = pos(e);
+        prevMid = last;
+        ctx.beginPath();
+        ctx.arc(last.x, last.y, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        dirty = true;
+        box.classList.add("has-ink");
+      });
+      canvas.addEventListener("pointermove", (e) => {
+        if (!drawing) return;
+        e.preventDefault();
+        const p = pos(e);
+        const mid = { x: (last.x + p.x) / 2, y: (last.y + p.y) / 2 };
+        ctx.beginPath();
+        ctx.moveTo(prevMid.x, prevMid.y);
+        ctx.quadraticCurveTo(last.x, last.y, mid.x, mid.y);
+        ctx.stroke();
+        prevMid = mid;
+        last = p;
+      });
+      const stop = () => { drawing = false; };
+      canvas.addEventListener("pointerup", stop);
+      canvas.addEventListener("pointercancel", stop);
+      canvas.addEventListener("pointerleave", stop);
+      clearBtn.addEventListener("click", clear);
+
+      return {
+        isEmpty: () => !dirty,
+        toDataURL: () => canvas.toDataURL("image/png"),
+        clear,
+      };
+    }
+    const inspPad = createSignaturePad(document.getElementById("inspSigCanvas"), document.getElementById("inspSigBox"), document.getElementById("inspSigClear"));
+    const repPad = createSignaturePad(document.getElementById("repSigCanvas"), document.getElementById("repSigBox"), document.getElementById("repSigClear"));
+
+    // -------------------------------------------------
+    // النموذج
+    // -------------------------------------------------
+    const sectorSelect = document.getElementById("rSector");
+    function fillSectors() {
+      sectorSelect.innerHTML = '<option value="">اختر القطاع</option>';
+      REPORT_SECTORS.forEach((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        sectorSelect.appendChild(opt);
+      });
+    }
+
+    function updateRefusedUI() {
+      const refused = document.getElementById("rRepRefused").checked;
+      document.getElementById("repSigField").style.display = refused ? "none" : "flex";
+      document.getElementById("repRefusedHint").style.display = refused ? "block" : "none";
+    }
+    document.getElementById("rRepRefused").addEventListener("change", updateRefusedUI);
+
+    const reasonsEl = document.getElementById("rReasons");
+    reasonsEl.addEventListener("input", () => {
+      document.getElementById("reasonsCount").textContent = reasonsEl.value.length + " / 500";
+    });
+
+    function formIsDirty() {
+      return !!(
+        sectorSelect.value ||
+        document.getElementById("rEntity").value.trim() ||
+        document.getElementById("rLocation").value.trim() ||
+        reasonsEl.value.trim() ||
+        document.getElementById("rRepName").value.trim() ||
+        document.getElementById("rRepJob").value.trim() ||
+        document.getElementById("rRepRefused").checked ||
+        !inspPad.isEmpty() ||
+        !repPad.isEmpty()
+      );
+    }
+
+    function resetForm() {
+      sectorSelect.value = "";
+      document.getElementById("rEntity").value = "";
+      document.getElementById("rLocation").value = "";
+      reasonsEl.value = "";
+      document.getElementById("reasonsCount").textContent = "0 / 500";
+      document.getElementById("rRepRefused").checked = false;
+      document.getElementById("rRepName").value = "";
+      document.getElementById("rRepJob").value = "";
+      document.getElementById("rInspectorName").value = myProfile.full_name || "";
+      inspPad.clear();
+      repPad.clear();
+      document.getElementById("formError").textContent = "";
+      updateRefusedUI();
+    }
+
+    // يعرض التاريخ والوقت التلقائي (ميلادي + هجري) بأعلى النموذج
+    function formatWhenLine(date) {
+      return `${reportWeekday(date)} ${reportDateShort(date)} — ${reportTime12(date)}`;
+    }
+    function formatHijriLine(date) {
+      const h = reportHijriParts(date);
+      return h ? `${h.year}/${h.month}/${h.day} هـ` : "—";
+    }
+
+    function openForm(typeKey) {
+      currentType = typeKey;
+      resetForm();
+      formOpenedAt = new Date(); // لحظة فتح المحضر
+      document.getElementById("formTypeTitle").textContent = reportTypeName(typeKey);
+      document.getElementById("autoWhen").textContent = formatWhenLine(formOpenedAt);
+      document.getElementById("autoHijri").textContent = "الموافق: " + formatHijriLine(formOpenedAt);
+      showView("form");
+    }
+
+    document.getElementById("newReportBtn").addEventListener("click", () => {
+      // نوع واحد حاليًا ومع ذلك نعرض شاشة الاختيار (تزيد الأنواع لاحقًا)
+      const list = document.getElementById("typeList");
+      list.innerHTML = "";
+      REPORT_TYPES.forEach((t) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "type-card";
+        btn.innerHTML = `<span>${escapeHtml(t.name)}</span><span style="color:var(--text-muted)">◀</span>`;
+        btn.addEventListener("click", () => openForm(t.key));
+        list.appendChild(btn);
+      });
+      showView("type");
+    });
+    document.getElementById("typeCancelBtn").addEventListener("click", () => showView("list"));
+
+    document.getElementById("cancelReportBtn").addEventListener("click", () => {
+      if (formIsDirty() && !confirm("سيتم تجاهل بيانات المحضر المكتوبة. هل تريد الإلغاء؟")) return;
+      showView("list");
+    });
+
+    document.getElementById("saveReportBtn").addEventListener("click", async () => {
+      const errorEl = document.getElementById("formError");
+      errorEl.textContent = "";
+
+      const sector = sectorSelect.value;
+      const entity = document.getElementById("rEntity").value.trim();
+      const location = document.getElementById("rLocation").value.trim();
+      const reasons = reasonsEl.value.trim();
+      const refused = document.getElementById("rRepRefused").checked;
+      const repName = document.getElementById("rRepName").value.trim();
+      const repJob = document.getElementById("rRepJob").value.trim();
+
+      if (!sector) return (errorEl.textContent = "اختر قطاع المراقب");
+      if (!entity) return (errorEl.textContent = "اكتب اسم الجهة / الفرع");
+      if (!location) return (errorEl.textContent = "اكتب الموقع");
+      if (!reasons) return (errorEl.textContent = "اكتب أسباب منع المراقب من الدخول");
+      if (!refused) {
+        if (!repName) return (errorEl.textContent = "اكتب اسم ممثل الجهة، أو فعّل خيار رفض التوقيع");
+        if (!repJob) return (errorEl.textContent = "اكتب وظيفة ممثل الجهة، أو فعّل خيار رفض التوقيع");
+        if (repPad.isEmpty()) return (errorEl.textContent = "يلزم توقيع ممثل الجهة، أو فعّل خيار رفض التوقيع");
+      }
+      if (inspPad.isEmpty()) return (errorEl.textContent = "يلزم توقيع المراقب");
+
+      // المحضر المفتوح لفترة طويلة يُفتح من جديد (وقته ثابت ولا يتغير بصمت عند الحفظ)
+      if (Date.now() - formOpenedAt.getTime() > REPORT_MAX_OPEN_HOURS * 3600 * 1000) {
+        errorEl.textContent = "انتهت صلاحية هذا النموذج لطول مدة فتحه. افتح محضرًا جديدًا.";
+        return;
+      }
+
+      if (!confirm("بعد الحفظ لا يمكن تعديل المحضر، والحذف يكون للمشرف أو المالك فقط. هل تريد حفظ المحضر؟")) return;
+
+      const btn = document.getElementById("saveReportBtn");
+      btn.disabled = true;
+      try {
+        const created = await addReport({
+          id: crypto.randomUUID(),
+          tool_id: toolId,
+          inspector_id: myProfile.id,
+          report_type: currentType,
+          occurred_at: formOpenedAt.toISOString(),
+          data: {
+            sector,
+            entity,
+            location,
+            reasons,
+            rep_refused: refused,
+            rep_name: repName,
+            rep_job: repJob,
+            inspector_name: myProfile.full_name,
+          },
+          inspector_signature: inspPad.toDataURL(),
+          rep_signature: refused ? null : repPad.toDataURL(),
+        });
+        allReports.unshift(created);
+        allReports.sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at));
+        refreshInspectorOptions();
+        resetForm();
+        showView("list");
+        showToast("تم حفظ المحضر");
+      } catch (e) {
+        errorEl.textContent = e.message || "تعذّر حفظ المحضر";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // -------------------------------------------------
+    // القائمة: تجميع بالشهر الميلادي + بحث وفلترة
+    // -------------------------------------------------
+    const GREGORIAN_MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+    function monthKey(iso) {
+      const d = new Date(iso);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+    function monthLabel(iso) {
+      const d = new Date(iso);
+      return `${GREGORIAN_MONTHS_AR[d.getMonth()]} ${d.getFullYear()}`;
+    }
+    function dayKey(iso) {
+      const d = new Date(iso);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+    function formatDateTime(iso) {
+      const d = new Date(iso);
+      return `${reportDateShort(d)} — ${reportTime12(d)}`;
+    }
+    function reportInspectorName(r) {
+      return (r.data && r.data.inspector_name) || "—";
+    }
+
+    let openMonths = new Set();
+    let periodState = { preset: "this_month" };
+
+    function getFilteredReports() {
+      const query = document.getElementById("reportSearchInput").value.trim().toLowerCase();
+      const type = document.getElementById("filterType").value;
+      const inspectorId = document.getElementById("filterInspector").value;
+      const { from, to } = resolveDateRange(periodState);
+
+      return allReports.filter((r) => {
+        if (type && r.report_type !== type) return false;
+        if (inspectorId && r.inspector_id !== inspectorId) return false;
+        if (from || to) {
+          const day = dayKey(r.occurred_at);
+          if (from && day < from) return false;
+          if (to && day > to) return false;
+        }
+        if (query) {
+          const d = r.data || {};
+          const hay = [d.entity, d.location, d.sector, d.inspector_name].join(" ").toLowerCase();
+          if (!hay.includes(query)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderMonths() {
+      const filtered = getFilteredReports();
+      const groups = {};
+      filtered.forEach((r) => {
+        const key = monthKey(r.occurred_at);
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(r);
+      });
+      const sortedKeys = Object.keys(groups).sort().reverse();
+      if (sortedKeys.length > 0 && openMonths.size === 0) openMonths.add(sortedKeys[0]); // الشهر الأحدث مفتوح افتراضيًا
+
+      const wrap = document.getElementById("monthsList");
+      wrap.innerHTML = "";
+      if (sortedKeys.length === 0) {
+        wrap.innerHTML = '<div class="empty-hint">لا توجد محاضر مطابقة.</div>';
+        return;
+      }
+
+      sortedKeys.forEach((key) => {
+        const items = groups[key];
+        const isOpen = openMonths.has(key);
+
+        const section = document.createElement("div");
+        section.className = "month-group";
+
+        const header = document.createElement("button");
+        header.type = "button";
+        header.className = "month-header";
+        header.innerHTML = `<span>${isOpen ? "▼" : "◀"} ${monthLabel(items[0].occurred_at)}</span><span class="month-count">${items.length} محضر</span>`;
+        header.addEventListener("click", () => {
+          if (openMonths.has(key)) openMonths.delete(key);
+          else openMonths.add(key);
+          renderMonths();
+        });
+        section.appendChild(header);
+
+        if (isOpen) {
+          const list = document.createElement("div");
+          list.className = "month-items";
+          items.forEach((r) => {
+            const d = r.data || {};
+            const row = document.createElement("div");
+            row.className = "visit-row";
+            const color = typeColor(r.report_type);
+            const sub = [formatDateTime(r.occurred_at), d.sector ? "قطاع " + d.sector : "", isAdmin ? reportInspectorName(r) : ""].filter(Boolean).join(" · ");
+            row.innerHTML = `
+              <div class="visit-row-main">
+                <span class="visit-row-name">${escapeHtml(d.entity || "—")}</span>
+                <span class="visit-status-badge" style="background:${color}22;color:${color}">${escapeHtml(reportTypeName(r.report_type))}</span>
+              </div>
+              <div class="visit-row-sub">${escapeHtml(sub)}</div>
+            `;
+            row.addEventListener("click", () => openReportDetail(r));
+            list.appendChild(row);
+          });
+          section.appendChild(list);
+        }
+        wrap.appendChild(section);
+      });
+    }
+
+    document.getElementById("reportSearchInput").addEventListener("input", renderMonths);
+    document.getElementById("filterType").addEventListener("change", renderMonths);
+    document.getElementById("filterInspector").addEventListener("change", renderMonths);
+    createDateRangePicker(document.getElementById("periodBtn"), periodState, (state) => {
+      periodState = state;
+      renderMonths();
+    });
+
+    // فلتر المراقب (للمشرف والمالك): نافذة فيها خانة بحث — يُعبّأ من المراقبين الذين لهم محاضر
+    function refreshInspectorOptions() {
+      if (!isAdmin) return;
+      const select = document.getElementById("filterInspector");
+      const keep = select.value;
+      const map = new Map();
+      allReports.forEach((r) => {
+        if (!map.has(r.inspector_id)) map.set(r.inspector_id, reportInspectorName(r));
+      });
+      select.innerHTML = '<option value="">كل المراقبين</option>';
+      map.forEach((name, id) => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+      select.value = map.has(keep) ? keep : "";
+      select.dispatchEvent(new Event("labelrefresh"));
+    }
+
+    (function initInspectorPicker() {
+      const select = document.getElementById("filterInspector");
+      const btn = document.getElementById("inspectorBtn");
+      const chevron = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline></svg>';
+
+      function normalize(t) {
+        return String(t || "")
+          .toLowerCase()
+          .replace(/[ً-ْـ]/g, "")
+          .replace(/[أإآ]/g, "ا")
+          .replace(/ى/g, "ي")
+          .replace(/ة/g, "ه");
+      }
+      function updateLabel() {
+        const opt = select.options[select.selectedIndex];
+        btn.innerHTML = `<span class="insp-btn-text"></span>${chevron}`;
+        btn.querySelector(".insp-btn-text").textContent = opt ? opt.textContent : "كل المراقبين";
+      }
+      select.addEventListener("labelrefresh", updateLabel);
+
+      const overlay = document.createElement("div");
+      overlay.className = "drp-overlay";
+      overlay.style.display = "none";
+      overlay.innerHTML =
+        '<div class="drp-box" role="dialog" aria-modal="true">' +
+        '<div class="field" style="margin-bottom:10px"><input type="text" class="insp-search" placeholder="ابحث باسم المراقب..." /></div>' +
+        '<div class="insp-list"></div>' +
+        '<button type="button" class="secondary drp-close" style="width:100%;margin-top:10px">إغلاق</button>' +
+        "</div>";
+      document.body.appendChild(overlay);
+      const searchEl = overlay.querySelector(".insp-search");
+      const listEl = overlay.querySelector(".insp-list");
+
+      function render() {
+        const q = normalize(searchEl.value.trim());
+        listEl.innerHTML = "";
+        let count = 0;
+        [...select.options].forEach((opt) => {
+          if (q && opt.value && !normalize(opt.textContent).includes(q)) return;
+          if (q && !opt.value) return; // "كل المراقبين" لا تظهر أثناء البحث
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "insp-item" + (opt.value === select.value ? " active" : "");
+          item.textContent = opt.textContent;
+          item.addEventListener("click", () => {
+            select.value = opt.value;
+            select.dispatchEvent(new Event("change"));
+            updateLabel();
+            overlay.style.display = "none";
+          });
+          listEl.appendChild(item);
+          count++;
+        });
+        if (count === 0) listEl.innerHTML = '<div class="empty-hint">لا يوجد مراقب بهذا الاسم</div>';
+      }
+
+      btn.addEventListener("click", () => {
+        searchEl.value = "";
+        render();
+        overlay.style.display = "flex";
+        searchEl.focus();
+      });
+      searchEl.addEventListener("input", render);
+      overlay.querySelector(".drp-close").addEventListener("click", () => { overlay.style.display = "none"; });
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.style.display = "none"; });
+      updateLabel();
+    })();
+
+    // -------------------------------------------------
+    // نافذة تفاصيل المحضر: عرض + تنزيل PDF + مشاركة + حذف (للمشرف والمالك)
+    // -------------------------------------------------
+    let detailReport = null; // نسخة كاملة بالتواقيع للمحضر المفتوح
+    let pendingShare = null; // ملف جاهز للمشاركة بالضغطة التالية (لو منعها المتصفح بعد التوليد)
+    const rdError = document.getElementById("rdError");
+    const rdPdfBtn = document.getElementById("rdPdfBtn");
+    const rdShareBtn = document.getElementById("rdShareBtn");
+
+    function setDetailBusy(busy) {
+      rdPdfBtn.disabled = busy;
+      rdShareBtn.disabled = busy;
+    }
+    function resetShareButton() {
+      pendingShare = null;
+      rdShareBtn.textContent = "مشاركة";
+    }
+
+    async function openReportDetail(r) {
+      rdError.textContent = "";
+      resetShareButton();
+      setDetailBusy(false);
+      detailReport = r;
+      const d = r.data || {};
+      const when = new Date(r.occurred_at);
+      document.getElementById("rdTitle").textContent = d.entity || reportTypeName(r.report_type);
+      document.getElementById("rdType").textContent = reportTypeName(r.report_type);
+      document.getElementById("rdWhen").textContent = `${reportWeekday(when)} ${formatDateTime(r.occurred_at)}`;
+      document.getElementById("rdHijri").textContent = formatHijriLine(when);
+      document.getElementById("rdSector").textContent = d.sector || "—";
+      document.getElementById("rdLocation").textContent = d.location || "—";
+      document.getElementById("rdReasons").textContent = d.reasons || "—";
+      document.getElementById("rdInspector").textContent = d.inspector_name || "—";
+      const repText = d.rep_refused
+        ? "رفض التوقيع أو إعطاء بياناته" + (d.rep_name ? " — " + d.rep_name + (d.rep_job ? " (" + d.rep_job + ")" : "") : "")
+        : (d.rep_name || "—") + (d.rep_job ? " (" + d.rep_job + ")" : "");
+      document.getElementById("rdRep").textContent = repText;
+      document.getElementById("rdSigs").innerHTML = "";
+      document.getElementById("rdDeleteBtn").style.display = isAdmin ? "" : "none";
+      rdShareBtn.style.display = navigator.share ? "" : "none";
+      document.getElementById("reportDetailModal").style.display = "flex";
+
+      // التواقيع لا تُجلب مع القائمة (ثقيلة)، فنجلبها هنا لو ناقصة
+      try {
+        if (!("inspector_signature" in r)) {
+          const full = await fetchReportFull(r.id);
+          Object.assign(r, full);
+        }
+        if (detailReport !== r) return; // المستخدم فتح محضرًا آخر أثناء الجلب
+        const sigs = document.getElementById("rdSigs");
+        [["توقيع المراقب", r.inspector_signature], ["توقيع ممثل الجهة", r.rep_signature]].forEach(([label, value]) => {
+          if (!isSafeSignature(value)) return;
+          const box = document.createElement("div");
+          box.className = "rd-sig";
+          const img = document.createElement("img");
+          img.src = value;
+          img.alt = label;
+          const cap = document.createElement("div");
+          cap.textContent = label;
+          box.appendChild(img);
+          box.appendChild(cap);
+          sigs.appendChild(box);
+        });
+      } catch (e) {
+        if (detailReport === r) rdError.textContent = "تعذّر تحميل التواقيع، حاول مرة أخرى";
+      }
+    }
+
+    async function ensureFullReport() {
+      if (!("inspector_signature" in detailReport)) {
+        const full = await fetchReportFull(detailReport.id);
+        Object.assign(detailReport, full);
+      }
+      return detailReport;
+    }
+
+    rdPdfBtn.addEventListener("click", async () => {
+      rdError.textContent = "";
+      const target = detailReport;
+      setDetailBusy(true);
+      const oldText = rdPdfBtn.textContent;
+      rdPdfBtn.textContent = "جارٍ تجهيز الملف...";
+      try {
+        const full = await ensureFullReport();
+        const file = await getReportPdfFile(full);
+        downloadReportPdfFile(file);
+      } catch (e) {
+        if (detailReport === target) rdError.textContent = e.message || "تعذّر إنشاء ملف PDF";
+      } finally {
+        rdPdfBtn.textContent = oldText;
+        setDetailBusy(false);
+      }
+    });
+
+    async function doShare(file, report) {
+      try {
+        await navigator.share({ files: [file], title: reportTypeName(report.report_type) });
+        resetShareButton();
+        return "ok";
+      } catch (e) {
+        if (e && e.name === "AbortError") return "cancel"; // المستخدم أغلق نافذة المشاركة
+        if (e && e.name === "NotAllowedError") return "blocked"; // المتصفح يشترط ضغطة مباشرة
+        throw e;
+      }
+    }
+
+    rdShareBtn.addEventListener("click", async () => {
+      rdError.textContent = "";
+      const target = detailReport;
+      // الملف جاهز من ضغطة سابقة: نشاركه مباشرة بنفس الضغطة (بعض الأجهزة تشترط ذلك)
+      if (pendingShare && pendingShare.id === target.id) {
+        const file = pendingShare.file;
+        const res = await doShare(file, target).catch((e) => { rdError.textContent = e.message || "تعذّرت المشاركة"; return "error"; });
+        if (res === "blocked") rdError.textContent = "تعذّرت المشاركة، استخدم زر تنزيل PDF.";
+        return;
+      }
+      setDetailBusy(true);
+      const oldText = rdShareBtn.textContent;
+      rdShareBtn.textContent = "جارٍ تجهيز الملف...";
+      try {
+        const full = await ensureFullReport();
+        const file = await getReportPdfFile(full);
+        if (detailReport !== target) return;
+        if (!canShareReportFile(file)) {
+          downloadReportPdfFile(file);
+          rdError.textContent = "المشاركة غير مدعومة على هذا الجهاز، تم تنزيل الملف.";
+          rdShareBtn.textContent = oldText;
+          return;
+        }
+        const res = await doShare(file, target);
+        if (res === "blocked") {
+          // التوليد أخذ وقتًا فانتهت صلاحية الضغطة: نجهّز الزر لضغطة ثانية فورية
+          pendingShare = { id: target.id, file };
+          rdShareBtn.textContent = "اضغط للمشاركة";
+          return;
+        }
+        rdShareBtn.textContent = oldText;
+      } catch (e) {
+        if (detailReport === target) rdError.textContent = e.message || "تعذّر تجهيز الملف";
+        rdShareBtn.textContent = oldText;
+      } finally {
+        setDetailBusy(false);
+      }
+    });
+
+    document.getElementById("rdCloseBtn").addEventListener("click", () => {
+      document.getElementById("reportDetailModal").style.display = "none";
+      detailReport = null;
+    });
+
+    document.getElementById("rdDeleteBtn").addEventListener("click", async () => {
+      const target = detailReport;
+      if (!target) return;
+      if (!confirm("سيتم حذف هذا المحضر نهائيًا ولا يمكن التراجع. هل أنت متأكد؟")) return;
+      const btn = document.getElementById("rdDeleteBtn");
+      btn.disabled = true;
+      try {
+        await deleteReport(target.id);
+        allReports = allReports.filter((x) => x.id !== target.id);
+        reportPdfCache.delete(target.id);
+        refreshInspectorOptions();
+        document.getElementById("reportDetailModal").style.display = "none";
+        detailReport = null;
+        renderMonths();
+        showToast("تم حذف المحضر");
+      } catch (e) {
+        rdError.textContent = e.message || "تعذّر حذف المحضر";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ==================================================================
+    // تشغيل الصفحة
+    // ==================================================================
+    (async () => {
+      const profile = await requireAuth();
+      if (!profile) return;
+      myProfile = profile;
+      isAdmin = profile.role === "admin" || profile.role === "owner";
+
+      if (!toolId) {
+        document.getElementById("toolTitle").textContent = "لم يتم تحديد أداة";
+        return;
+      }
+
+      const tools = await fetchTools();
+      const tool = tools.find((t) => t.id === toolId);
+      document.getElementById("toolTitle").textContent = tool ? tool.name : "المحاضر";
+
+      if (!profile.full_name) {
+        document.getElementById("noNameNotice").style.display = "block";
+        return;
+      }
+
+      fillSectors();
+      REPORT_TYPES.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t.key;
+        opt.textContent = t.name;
+        document.getElementById("filterType").appendChild(opt);
+      });
+      if (isAdmin) {
+        document.getElementById("inspectorBtn").style.display = "flex";
+      }
+
+      allReports = await fetchReports(toolId);
+      refreshInspectorOptions();
+
+      document.getElementById("reportsWrap").style.display = "block";
+      showView("list");
+    })();
+  </script>
+</body>
+</html>

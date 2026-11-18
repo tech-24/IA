@@ -14,6 +14,46 @@ function isVisitTool(tool) {
   return tool.url === VISIT_TOOL_URL;
 }
 
+// رابط ثابت يميّز "أداة المحاضر" الجاهزة
+const REPORTS_TOOL_URL = "app://reports";
+
+// هل هذي الأداة من نوع "المحاضر" الجاهزة؟
+function isReportsTool(tool) {
+  return tool.url === REPORTS_TOOL_URL;
+}
+
+// هل هي أداة جاهزة (من أي نوع)؟
+function isBuiltinTool(tool) {
+  return isVisitTool(tool) || isReportsTool(tool);
+}
+
+// الأدوات الجاهزة المتاحة: المفتاح (يُستخدم بقائمة الاختيار)، الاسم المقترح، الرابط الثابت، وصفحة الفتح.
+// لإضافة أداة جاهزة جديدة نضيف عنصرًا هنا ونعدّل isBuiltinTool
+const BUILTIN_TOOLS = [
+  { key: "visits", name: "تسجيل الزيارات", url: VISIT_TOOL_URL, page: "visits-view.html" },
+  { key: "reports", name: "المحاضر", url: REPORTS_TOOL_URL, page: "reports-view.html" },
+];
+
+// الأداة الجاهزة المطابقة لأداة محفوظة (أو undefined لو الأداة رابط/ملف عادي)
+function builtinForTool(tool) {
+  return BUILTIN_TOOLS.find((b) => b.url === tool.url);
+}
+
+// رابط صفحة الأداة الجاهزة (مع رقم الأداة)
+function builtinToolHref(tool) {
+  const b = builtinForTool(tool);
+  return b ? `${b.page}?tool_id=${encodeURIComponent(tool.id)}` : null;
+}
+
+// أيقونة بديلة تظهر لو الأداة بلا أيقونة مرفوعة (HTML جاهز للإدراج داخل .icon-text)
+function toolFallbackIconHtml(tool) {
+  if (isVisitTool(tool)) return "📋";
+  if (isReportsTool(tool)) {
+    return '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary)"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><polyline points="14 3 14 8 19 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>';
+  }
+  return "🔗";
+}
+
 // -------------------------------------------------
 // حذف ملف أيقونة/ملف أداة فعليًا من Supabase Storage
 // bucketConst: أي bucket نحذف منه (TOOL_BUCKET للأيقونة، أو TOOL_FILE_BUCKET للملف)

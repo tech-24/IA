@@ -89,6 +89,7 @@
         <label for="toolBuiltinSelect">اختر الأداة الجاهزة</label>
         <select id="toolBuiltinSelect">
           <option value="visits">تسجيل الزيارات</option>
+          <option value="reports">المحاضر</option>
         </select>
       </div>
 
@@ -130,6 +131,7 @@
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
   <script src="visits.js"></script>
+  <script src="reports.js"></script>
   <script>
     let allTools = [];
     let editingToolId = null;
@@ -140,8 +142,6 @@
       toolsGrid.innerHTML = "";
 
       allTools.forEach((tool) => {
-        const visitTool = isVisitTool(tool);
-
         const card = document.createElement("div");
         card.className = "category-card" + (tool.is_hidden ? " tool-hidden" : "");
         card.style.cursor = "pointer";
@@ -153,7 +153,7 @@
         visual.className = "category-visual";
         visual.innerHTML = tool.image_value
           ? `<img src="${escapeHtml(tool.image_value)}" alt="${escapeHtml(tool.name)}" style="object-fit:contain;padding:10px;box-sizing:border-box" />`
-          : `<span class="icon-text">${visitTool ? "📋" : "🔗"}</span>`;
+          : `<span class="icon-text">${toolFallbackIconHtml(tool)}</span>`;
 
         const name = document.createElement("div");
         name.className = "category-name";
@@ -197,6 +197,7 @@
     const toolUrlField = document.getElementById("toolUrlField");
     const toolFileField = document.getElementById("toolFileField");
     const toolBuiltinField = document.getElementById("toolBuiltinField");
+    const toolBuiltinSelect = document.getElementById("toolBuiltinSelect");
     let currentUrlType = "link"; // "link" أو "file" أو "builtin" — أي وضع مفعّل حاليًا بالنافذة
 
     function setUrlType(type) {
@@ -226,6 +227,7 @@
       toolModalError.textContent = "";
       deleteToolBtn.style.display = "none";
       deleteToolBtn.disabled = false;
+      toolBuiltinSelect.disabled = false; // عند الإضافة نختار نوع الأداة الجاهزة بحرية
       setUrlType("link");
       toolModal.style.display = "flex";
     }
@@ -237,10 +239,12 @@
       document.getElementById("toolUrlFile").value = "";
       document.getElementById("toolFile").value = "";
 
-      if (isVisitTool(tool)) {
-        // أداة زيارات: نوعها ثابت (ما نعرض خيارات رابط/ملف إطلاقًا)، ونعرض مفتاح الإخفاء
+      if (isBuiltinTool(tool)) {
+        // أداة جاهزة (زيارات أو محاضر): نوعها ثابت (ما نعرض خيارات رابط/ملف إطلاقًا)، ونعرض مفتاح الإخفاء
         document.getElementById("urlTypeField").style.display = "none";
         document.getElementById("currentToolFileWrap").style.display = "none";
+        toolBuiltinSelect.value = builtinForTool(tool).key;
+        toolBuiltinSelect.disabled = true; // نوع الأداة الجاهزة لا يتغير بعد إنشائها
         setUrlType("builtin");
         document.getElementById("toolHiddenField").style.display = "flex";
         document.getElementById("toolHiddenToggle").checked = !!tool.is_hidden;
@@ -292,7 +296,8 @@
 
       const hasLink = (currentUrlType === "link" && url) || isBuiltin;
       const hasFile = currentUrlType === "file" && urlFile;
-      const effectiveUrl = isBuiltin ? VISIT_TOOL_URL : url; // الأداة الجاهزة لها رابط ثابت دائمًا
+      const builtinChoice = BUILTIN_TOOLS.find((b) => b.key === toolBuiltinSelect.value) || BUILTIN_TOOLS[0];
+      const effectiveUrl = isBuiltin ? builtinChoice.url : url; // الأداة الجاهزة لها رابط ثابت دائمًا
 
       if (!name || (!hasLink && !hasFile && !editingToolId)) {
         toolModalError.textContent = "اكتب اسم الأداة، واختر رابط أو ملف أو أداة جاهزة";
@@ -321,8 +326,8 @@
             await deleteToolStorageFile(oldTool.url, TOOL_FILE_BUCKET);
           }
 
-          // إخفاء/إظهار أداة الزيارات (الحقل ما يظهر أصلاً لغير أدوات الزيارات)
-          if (isVisitTool(updated)) {
+          // إخفاء/إظهار الأداة الجاهزة (الحقل ما يظهر أصلاً لغير الأدوات الجاهزة)
+          if (isBuiltinTool(updated)) {
             const hidden = document.getElementById("toolHiddenToggle").checked;
             await updateToolHidden(editingToolId, hidden);
             updated.is_hidden = hidden;
@@ -373,6 +378,32 @@
         try {
           await deleteAllVisitPhotosForTool(tool.id); // تنظيف الصور أولًا، قبل حذف الأداة (والزيارات معها تلقائيًا)
           await deleteTool(editingToolId);
+          if (tool.image_value) await deleteToolStorageFile(tool.image_value, TOOL_BUCKET);
+        } catch (e) {
+          toolModalError.textContent = e.message || "تعذر حذف الأداة";
+          deleteToolBtn.disabled = false;
+          return;
+        }
+      } else if (isReportsTool(tool)) {
+        // أداة محاضر: نوضح عدد المحاضر اللي بتنحذف معها، ونقترح الإخفاء بدلًا من الحذف
+        toolModalError.textContent = "";
+        let reportsCount = 0;
+        try {
+          reportsCount = await countReportsForTool(tool.id);
+        } catch (e) {
+          toolModalError.textContent = "تعذر التحقق من عدد المحاضر، حاول مرة أخرى";
+          return;
+        }
+        const message =
+          `سيتم حذف أداة "${tool.name}" نهائيًا، وسيُحذف معها ${reportsCount} محضر بتواقيعها، ولا يمكن التراجع.\n` +
+          `إذا تبي تحتفظ بالمحاضر، أخفِ الأداة بدلًا من حذفها.\n` +
+          `للتأكيد، اكتب كلمة "حذف" بالضبط:`;
+        const typed = prompt(message);
+        if (typed !== "حذف") return;
+
+        deleteToolBtn.disabled = true;
+        try {
+          await deleteTool(editingToolId); // المحاضر تنحذف معها تلقائيًا (ربط cascade بالقاعدة)
           if (tool.image_value) await deleteToolStorageFile(tool.image_value, TOOL_BUCKET);
         } catch (e) {
           toolModalError.textContent = e.message || "تعذر حذف الأداة";

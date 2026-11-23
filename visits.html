@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.json" />
   <title>تسجيل الزيارات — لوحة المشرف</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="preconnect" href="https://twbatrsenepuaylyiqsq.supabase.co" />
@@ -76,6 +76,8 @@
       <a class="tab-btn" id="myVisitsLink" href="#" style="text-decoration:none">زياراتي</a>
       <button class="tab-btn active" type="button">جميع الزيارات</button>
     </div>
+
+    <div id="pageSkeleton"></div>
 
     <div id="visitTabsWrap" style="display:none">
       <!-- ==================== نموذج تعديل زيارة — يظهر فقط عند الضغط على "تعديل" ==================== -->
@@ -196,12 +198,12 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
   <script src="config.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=2"></script>
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
-  <script src="visits.js?v=2"></script>
+  <script src="visits.js?v=3"></script>
   <script src="date-range-picker.js"></script>
-  <script src="export.js"></script>
+  <script src="export.js?v=2"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const toolId = urlParams.get("tool_id");
@@ -219,7 +221,9 @@
     let myProfile = null;
     let statuses = [];
     let areas = [];
-    let allVisits = [];
+    let allVisits = [];            // زيارات الفترة المعروضة حاليًا فقط (تُجلب من الخادم حسب الفترة)
+    const visitsCache = new Map(); // نتيجة كل فترة انفتحت (المفتاح "من|إلى")، تُفرَّغ عند أي حفظ أو تعديل أو حذف
+    let visitsLoadSeq = 0;         // رقم آخر طلب تحميل، نتجاهل أي رد قديم وصل بعد طلب أحدث
     let editingVisitId = null;
     let editingVisitInspectorId = null; // المفتش الأصلي صاحب الزيارة الجاري تعديلها (لمسار الصور الصحيح)
     let editingOldEstPath = null; // المسار القديم لصورة المنشأة قبل التعديل (لتنظيفه لو تغيّر)
@@ -511,6 +515,7 @@
           const updated = await updateVisit(editingVisitId, updates);
           const index = allVisits.findIndex((v) => v.id === editingVisitId);
           if (index !== -1) allVisits[index] = { ...allVisits[index], ...updated };
+          visitsCache.clear(); // الفترات المخزّنة صارت قديمة: تُجلب من جديد عند فتحها
           successEl.textContent = "تم حفظ التعديل ✓";
           resetRegisterForm();
         } else {
@@ -543,6 +548,7 @@
             visit_areas: areas.find((a) => a.id === area_id) || null,
             profiles: { full_name: myProfile.full_name, email: myProfile.email },
           });
+          visitsCache.clear(); // الفترات المخزّنة صارت قديمة: تُجلب من جديد عند فتحها
           successEl.textContent = "تم حفظ الزيارة ✓";
           resetRegisterForm();
         }
@@ -596,6 +602,66 @@
     let periodState = { preset: "this_month" };
     function resolvePeriodRange() {
       return resolveDateRange(periodState);
+    }
+
+    // -------------------------------------------------
+    // تحميل زيارات الفترة المختارة من الخادم (بالدفعات لو كثرت)، مع حفظ نتيجة كل فترة بالذاكرة
+    // لما ترجع لها بدون طلب جديد. أي حفظ أو تعديل أو حذف يفرّغ الذاكرة المؤقتة
+    // الفلاتر الثانية (النطاق والحالة والحي والمفتش والبحث) تبقى على الجهاز فوق الزيارات المحمّلة
+    // -------------------------------------------------
+    async function loadVisitsRows(onProgress) {
+      const { from, to } = resolvePeriodRange();
+      const key = from + "|" + to;
+      let rows = visitsCache.get(key);
+      if (!rows) {
+        rows = await fetchVisits(toolId, { from, to, onProgress });
+        visitsCache.set(key, rows);
+      }
+      return rows;
+    }
+
+    // فلتر المفتشين: من المفتشين اللي لهم زيارات بالفترة المحمّلة. لو المفتش المختار ما له زيارات
+    // بالفترة الجديدة يرجع الفلتر إلى "كل المفتشين"
+    function rebuildInspectorOptions() {
+      const select = document.getElementById("filterInspector");
+      const previous = select.value;
+      const inspectorsMap = new Map();
+      allVisits.forEach((v) => {
+        if (!inspectorsMap.has(v.inspector_id)) inspectorsMap.set(v.inspector_id, inspectorName(v));
+      });
+      select.innerHTML = '<option value="">كل المفتشين</option>';
+      inspectorsMap.forEach((name, id) => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+      select.value = inspectorsMap.has(previous) ? previous : "";
+      select.dispatchEvent(new Event("inspectors-rebuilt"));
+    }
+
+    // تغيير الفترة: نجلب زياراتها ثم نرسم القائمة. الطلب الأحدث هو اللي يُرسم (نتجاهل الردود القديمة)
+    async function reloadVisitsForPeriod() {
+      const seq = ++visitsLoadSeq;
+      const wrap = document.getElementById("monthsList");
+      const sk = startSkeleton(wrap, "rows", 6);
+      let rows;
+      try {
+        rows = await loadVisitsRows((loaded, total) => {
+          sk.setNote(total ? `تم تحميل ${loaded} من ${total} زيارة` : `تم تحميل ${loaded} زيارة`);
+        });
+      } catch (e) {
+        sk.stop();
+        if (seq !== visitsLoadSeq) return;
+        wrap.innerHTML = '<div class="empty-hint">تعذّر تحميل الزيارات. <button type="button" class="link-btn" id="retryVisitsBtn">إعادة المحاولة</button></div>';
+        document.getElementById("retryVisitsBtn").addEventListener("click", reloadVisitsForPeriod);
+        return;
+      }
+      sk.stop();
+      if (seq !== visitsLoadSeq) return;
+      allVisits = rows;
+      rebuildInspectorOptions();
+      renderMonths();
     }
 
     function getFilteredVisits() {
@@ -760,6 +826,7 @@
           .replace(/ى/g, "ي")
           .replace(/ة/g, "ه");
       }
+      select.addEventListener("inspectors-rebuilt", () => updateLabel()); // بعد إعادة بناء الخيارات بتغيّر الفترة
       function updateLabel() {
         const opt = select.options[select.selectedIndex];
         btn.innerHTML = `<span class="insp-btn-text"></span>${chevron}`;
@@ -815,7 +882,7 @@
     })();
     createDateRangePicker(document.getElementById("periodBtn"), periodState, (state) => {
       periodState = state;
-      renderMonths();
+      reloadVisitsForPeriod();
     });
 
     // -------------------------------------------------
@@ -890,6 +957,7 @@
         await deleteVisitPhotoFiles(detailVisit); // نحذف الصور أولًا، قبل ما يضيع مسارها بحذف الصف
         await deleteVisit(detailVisit.id);
         allVisits = allVisits.filter((v) => v.id !== detailVisit.id);
+        visitsCache.clear(); // الفترات المخزّنة صارت قديمة: تُجلب من جديد عند فتحها
         document.getElementById("visitDetailModal").style.display = "none";
         renderMonths();
       } catch (e) {
@@ -910,31 +978,36 @@
         return;
       }
 
-      const tools = await fetchTools();
+      // الأداة والحالات والنطاقات والزيارات مستقلة عن بعض: نجلبها بنفس الوقت
+      const pageSk = startSkeleton(document.getElementById("pageSkeleton"), "rows", 6);
+      let tools;
+      let visitRows;
+      try {
+        [tools, statuses, areas, visitRows] = await Promise.all([
+          fetchTools(),
+          fetchVisitStatuses(toolId),
+          fetchVisitAreas(toolId),
+          loadVisitsRows(),
+        ]);
+      } catch (e) {
+        pageSk.stop();
+        showLoadError(document.getElementById("pageSkeleton"));
+        return;
+      }
+      pageSk.stop();
+
       const tool = tools.find((t) => t.id === toolId);
       document.getElementById("toolTitle").textContent = tool ? tool.name : "تسجيل الزيارات";
 
-      statuses = await fetchVisitStatuses(toolId);
-      areas = await fetchVisitAreas(toolId);
       fillSelect(document.getElementById("visitStatus"), statuses, null);
       fillSelect(document.getElementById("visitArea"), areas, null);
       fillSelect(document.getElementById("filterStatus"), statuses, "كل الحالات");
       fillSelect(document.getElementById("filterArea"), areas, "كل النطاقات");
 
-      allVisits = await fetchVisits(toolId);
+      allVisits = visitRows;
 
-      // تعبئة فلتر المفتشين من المفتشين الفعليين اللي سجّلوا زيارات بهذي الأداة
-      const inspectorsMap = new Map();
-      allVisits.forEach((v) => {
-        if (!inspectorsMap.has(v.inspector_id)) inspectorsMap.set(v.inspector_id, inspectorName(v));
-      });
-      const filterInspector = document.getElementById("filterInspector");
-      inspectorsMap.forEach((name, id) => {
-        const opt = document.createElement("option");
-        opt.value = id;
-        opt.textContent = name;
-        filterInspector.appendChild(opt);
-      });
+      // تعبئة فلتر المفتشين من المفتشين الفعليين اللي سجّلوا زيارات بالفترة المعروضة
+      rebuildInspectorOptions();
 
       document.getElementById("visitTabsWrap").style.display = "block";
       showList();

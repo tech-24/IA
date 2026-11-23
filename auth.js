@@ -185,3 +185,118 @@ async function requireAuth(options = {}) {
 
   return profile;
 }
+
+
+// ==================================================================
+// أدوات مشتركة للأداء (تستخدمها عدة صفحات)
+// ==================================================================
+
+// -------------------------------------------------
+// جلب كل صفوف استعلام كبير بالدفعات (لتفادي حد 1000 صف للطلب الواحد بـ Supabase،
+// اللي يقطع الباقي بصمت بدون أي خطأ)
+// buildQuery: دالة ترجع استعلامًا جديدًا كل مرة، فيه select(..., { count: "exact" })
+//   وترتيب ثابت (ثانوي بالمعرّف) حتى ما تتكرر صفوف ولا تنفقد بين الدفعات
+// ترجع مصفوفة بكل الصفوف بدون تكرار. أي خطأ بأي دفعة يُرمى (ما نرجع قائمة ناقصة كأنها كاملة)
+// onProgress(loaded, total): اختياري لعرض التقدّم عند الكثرة
+// -------------------------------------------------
+async function fetchAllRows(buildQuery, { pageSize = 1000, onProgress } = {}) {
+  const rows = [];
+  const seen = new Set();
+  let offset = 0;
+  let total = null;
+  for (let page = 0; page < 500; page++) { // سقف أمان فقط
+    const { data, error, count } = await buildQuery().range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    if (total === null && typeof count === "number") total = count;
+    if (!data || data.length === 0) break;
+    data.forEach((r) => {
+      if (r && r.id !== undefined) {
+        if (seen.has(r.id)) return; // صف انزاح بين دفعتين لأن أحدًا أضاف زيارة وقت التحميل
+        seen.add(r.id);
+      }
+      rows.push(r);
+    });
+    offset += data.length;
+    if (onProgress) onProgress(rows.length, total);
+    // لو نعرف العدد الكلي نوقف عنده (يشتغل صح حتى لو كان حد الخادم أقل من 1000)، وإلا نوقف عند أول دفعة ناقصة
+    if (total !== null ? offset >= total : data.length < pageSize) break;
+  }
+  return rows;
+}
+
+// -------------------------------------------------
+// skeleton loading: أشكال رمادية بتخطيط الصفحة أثناء انتظار البيانات
+// لا يظهر إلا لو تأخر التحميل أكثر من SKELETON_DELAY_MS، فالصفحات السريعة ما تومض
+// الاستخدام:
+//   const sk = startSkeleton(container, "rows", 5);
+//   try { data = await fetchSomething(); } finally { sk.stop(); }
+// kind: cards | rows | thumbrows | circulars | tabs
+// ترجع { stop(), setNote(text) } — stop تشيل أشكال هذا الاستدعاء فقط (آمنة لو انكرّرت)
+// -------------------------------------------------
+const SKELETON_DELAY_MS = 150;
+const SKELETON_SHAPES = {
+  cards: '<div class="skel-item skel-card-item"><div class="skel skel-block skel-card-visual"></div><div class="skel skel-block skel-line" style="width:60%"></div></div>',
+  rows: '<div class="skel-item skel-row-item"><div class="skel skel-block skel-line" style="width:58%"></div><div class="skel skel-block skel-line skel-line-sm" style="width:32%"></div></div>',
+  thumbrows: '<div class="skel-item skel-thumb-item"><div class="skel skel-block skel-thumb"></div><div class="skel skel-block skel-line" style="width:50%"></div></div>',
+  circulars: '<div class="skel-item skel-circ-item"><div class="skel skel-block skel-line" style="width:45%"></div><div class="skel skel-block skel-line skel-line-sm" style="width:25%"></div><div class="skel skel-block skel-line" style="width:90%"></div></div>',
+  tabs: '<div class="skel-item skel-pill-item"><div class="skel skel-block skel-pill"></div></div>',
+};
+
+function startSkeleton(container, kind = "rows", count = 5) {
+  const handle = { stop() {}, setNote() {} };
+  if (!container) return handle;
+
+  const shape = SKELETON_SHAPES[kind] || SKELETON_SHAPES.rows;
+  let nodes = [];
+  let noteEl = null;
+  let noteText = "";
+  let stopped = false;
+
+  const timer = setTimeout(() => {
+    if (stopped) return;
+    container.innerHTML = ""; // نستبدل أي محتوى قديم (مثلًا قائمة الفترة السابقة) بالأشكال أثناء الانتظار
+    const frag = document.createDocumentFragment();
+    if (noteText || kind === "rows" || kind === "thumbrows") {
+      noteEl = document.createElement("div");
+      noteEl.className = "skel-note";
+      noteEl.textContent = noteText;
+      noteEl.style.display = noteText ? "" : "none";
+      nodes.push(noteEl);
+      frag.appendChild(noteEl);
+    }
+    for (let i = 0; i < count; i++) {
+      const holder = document.createElement("div");
+      holder.innerHTML = shape;
+      const el = holder.firstElementChild;
+      el.setAttribute("aria-hidden", "true");
+      nodes.push(el);
+      frag.appendChild(el);
+    }
+    container.appendChild(frag);
+    container.setAttribute("aria-busy", "true");
+  }, SKELETON_DELAY_MS);
+
+  handle.stop = function () {
+    stopped = true;
+    clearTimeout(timer);
+    nodes.forEach((n) => n.remove());
+    nodes = [];
+    noteEl = null;
+    container.removeAttribute("aria-busy");
+  };
+  handle.setNote = function (text) {
+    noteText = text || "";
+    if (noteEl) {
+      noteEl.textContent = noteText;
+      noteEl.style.display = noteText ? "" : "none";
+    }
+  };
+  return handle;
+}
+
+// رسالة خطأ بسيطة مكان المحتوى لو فشل التحميل (بدل صفحة فاضية أو skeleton معلّق)
+function showLoadError(container, message) {
+  if (!container) return;
+  container.innerHTML =
+    '<div class="empty-hint">' + escapeHtml(message || "تعذّر تحميل البيانات. تأكد من الاتصال وحدّث الصفحة.") + "</div>";
+}

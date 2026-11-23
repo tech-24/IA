@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.json" />
   <title>تسجيل الزيارات</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="preconnect" href="https://twbatrsenepuaylyiqsq.supabase.co" />
@@ -60,6 +60,8 @@
       <p style="color:#b91c1c;font-size:14px;margin-bottom:10px">أضف اسمك الثلاثي أولاً قبل تسجيل الزيارات.</p>
       <a href="account.html" style="display:inline-block"><button type="button">فتح صفحة حسابي</button></a>
     </div>
+
+    <div id="pageSkeleton"></div>
 
     <div id="visitTabsWrap" style="display:none">
       <!-- الشريط يظهر للمشرف فقط (زياراتي + جميع الزيارات)؛ المفتش يرى زياراته مباشرة -->
@@ -222,10 +224,10 @@
   </nav>
 
   <script src="config.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=2"></script>
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
-  <script src="visits.js?v=2"></script>
+  <script src="visits.js?v=3"></script>
   <script src="date-range-picker.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
@@ -236,7 +238,10 @@
     let myProfile = null;
     let statuses = [];
     let areas = [];
-    let myVisits = [];
+    let myVisits = [];            // زيارات الفترة المعروضة حاليًا فقط (تُجلب من الخادم حسب الفترة)
+    let suggestionVisits = [];    // آخر زياراتي (أعمدة قليلة) لاقتراحات الحي والشارع، مستقلة عن الفترة
+    const visitsCache = new Map(); // نتيجة كل فترة انفتحت (المفتاح "من|إلى")، تُفرَّغ عند أي حفظ أو تعديل
+    let visitsLoadSeq = 0;         // رقم آخر طلب تحميل، نتجاهل أي رد قديم وصل بعد طلب أحدث
     let editingVisitId = null;
     let editingVisitInspectorId = null;
     let editingOldEstPath = null;
@@ -732,11 +737,26 @@
         .replace(/[\u064B-\u0652\u0640]/g, "");
     }
 
+    // الاقتراحات من آخر زيارات المفتش (suggestionVisits) + زيارات الفترة المعروضة (الأحدث بياناتها تغلب)
+    function suggestionPool() {
+      const pool = new Map();
+      myVisits.forEach((v) => pool.set(v.id, v));
+      suggestionVisits.forEach((v) => { if (!pool.has(v.id)) pool.set(v.id, v); });
+      return [...pool.values()];
+    }
+    // زيارة انحفظت أو تعدّلت بهذي الجلسة: نحدّث مصدر الاقتراحات فورًا
+    function rememberSuggestionVisit(v) {
+      const light = { id: v.id, area_id: v.area_id, neighborhood: v.neighborhood, street: v.street, visited_at: v.visited_at };
+      const i = suggestionVisits.findIndex((x) => x.id === v.id);
+      if (i === -1) suggestionVisits.unshift(light);
+      else suggestionVisits[i] = light;
+    }
+
     function collectSuggestions(field) {
       const areaId = document.getElementById("visitArea").value;
       const hoodKey = field === "street" ? suggestKey(document.getElementById("visitNeighborhood").value) : "";
       const items = new Map(); // المفتاح -> { text, time, preferred }
-      myVisits.forEach((v) => {
+      suggestionPool().forEach((v) => {
         if (v.id === editingVisitId) return; // الزيارة المعدَّلة لا تقترح قيمتها القديمة
         if (areaId && v.area_id !== areaId) return;
         const text = suggestClean(field === "street" ? v.street : v.neighborhood);
@@ -984,6 +1004,9 @@
           }
           // لو تغيّر وقت الزيارة، تتغيّر مكانها بالقائمة (الأحدث أولًا)
           myVisits.sort((a, b) => new Date(b.visited_at) - new Date(a.visited_at));
+          visitsCache.clear(); // الفترات المخزّنة صارت قديمة: تُجلب من جديد عند فتحها
+          const editedVisit = myVisits.find((v) => v.id === editingVisitId);
+          if (editedVisit) rememberSuggestionVisit(editedVisit);
           resetRegisterForm();
           showTab("mine");
           showMineToast("تم حفظ التعديل ✓");
@@ -1022,6 +1045,8 @@
           });
           // الزيارة قد تكون بوقت سابق، فنرتّب القائمة (الأحدث أولًا)
           myVisits.sort((a, b) => new Date(b.visited_at) - new Date(a.visited_at));
+          visitsCache.clear(); // الفترات المخزّنة صارت قديمة: تُجلب من جديد عند فتحها
+          rememberSuggestionVisit(created);
           resetRegisterForm();
           showTab("mine");
           showMineToast("تم حفظ الزيارة ✓");
@@ -1071,6 +1096,49 @@
     let periodState = { preset: "this_month" };
     function resolvePeriodRange() {
       return resolveDateRange(periodState);
+    }
+
+    // -------------------------------------------------
+    // تحميل زيارات الفترة المختارة من الخادم (بالدفعات لو كثرت)، مع حفظ نتيجة كل فترة بالذاكرة
+    // لما ترجع لها بدون طلب جديد. أي حفظ أو تعديل يفرّغ الذاكرة المؤقتة
+    // الفلاتر الثانية (النطاق والحالة والحي والبحث) تبقى على الجهاز فوق الزيارات المحمّلة
+    // -------------------------------------------------
+    async function loadVisitsRows(onProgress) {
+      const { from, to } = resolvePeriodRange();
+      const key = from + "|" + to;
+      let rows = visitsCache.get(key);
+      if (!rows) {
+        rows = await fetchVisits(toolId, { mineOnly: true, myId: myProfile.id, from, to, onProgress });
+        // كلها زياراته هو، فنلحق اسمه مباشرة بدون طلب إضافي (يُستخدم بعمود "منفّذ الزيارة" عند التصدير)
+        rows.forEach((v) => {
+          v.profiles = { full_name: myProfile.full_name, email: myProfile.email };
+        });
+        visitsCache.set(key, rows);
+      }
+      return rows;
+    }
+
+    // تغيير الفترة: نجلب زياراتها ثم نرسم القائمة. الطلب الأحدث هو اللي يُرسم (نتجاهل الردود القديمة)
+    async function reloadVisitsForPeriod() {
+      const seq = ++visitsLoadSeq;
+      const wrap = document.getElementById("monthsList");
+      const sk = startSkeleton(wrap, "rows", 6);
+      let rows;
+      try {
+        rows = await loadVisitsRows((loaded, total) => {
+          sk.setNote(total ? `تم تحميل ${loaded} من ${total} زيارة` : `تم تحميل ${loaded} زيارة`);
+        });
+      } catch (e) {
+        sk.stop();
+        if (seq !== visitsLoadSeq) return;
+        wrap.innerHTML = '<div class="empty-hint">تعذّر تحميل الزيارات. <button type="button" class="link-btn" id="retryVisitsBtn">إعادة المحاولة</button></div>';
+        document.getElementById("retryVisitsBtn").addEventListener("click", reloadVisitsForPeriod);
+        return;
+      }
+      sk.stop();
+      if (seq !== visitsLoadSeq) return;
+      myVisits = rows;
+      renderMonths();
     }
 
     function getFilteredVisits() {
@@ -1163,7 +1231,7 @@
     document.getElementById("filterNeighborhood").addEventListener("change", renderMonths);
     createDateRangePicker(document.getElementById("periodBtn"), periodState, (state) => {
       periodState = state;
-      renderMonths();
+      reloadVisitsForPeriod();
     });
 
     // -------------------------------------------------
@@ -1243,7 +1311,30 @@
         return;
       }
 
-      const tools = await fetchTools();
+      const pageSk = startSkeleton(document.getElementById("pageSkeleton"), "rows", 6);
+      let tools;
+      let visitRows;
+      try {
+        if (!profile.full_name) {
+          // بدون اسم ثلاثي ما نحتاج الزيارات ولا الحالات: الأداة فقط
+          tools = await fetchTools();
+        } else {
+          // الأداة والحالات والنطاقات والزيارات واقتراحات الحي مستقلة عن بعض: نجلبها بنفس الوقت
+          [tools, statuses, areas, visitRows, suggestionVisits] = await Promise.all([
+            fetchTools(),
+            fetchVisitStatuses(toolId),
+            fetchVisitAreas(toolId),
+            loadVisitsRows(),
+            fetchVisitSuggestionSource(toolId, profile.id).catch(() => []), // الاقتراحات تحسين فقط: فشلها ما يوقف الصفحة
+          ]);
+        }
+      } catch (e) {
+        pageSk.stop();
+        showLoadError(document.getElementById("pageSkeleton"));
+        return;
+      }
+      pageSk.stop();
+
       const tool = tools.find((t) => t.id === toolId);
       document.getElementById("toolTitle").textContent = tool ? tool.name : "تسجيل الزيارات";
 
@@ -1252,18 +1343,12 @@
         return;
       }
 
-      statuses = await fetchVisitStatuses(toolId);
-      areas = await fetchVisitAreas(toolId);
       fillSelect(document.getElementById("visitStatus"), statuses, null);
       fillSelect(document.getElementById("visitArea"), areas, null);
       fillSelect(document.getElementById("filterStatus"), statuses, "كل الحالات");
       fillSelect(document.getElementById("filterArea"), areas, "كل النطاقات");
 
-      myVisits = await fetchVisits(toolId, { mineOnly: true, myId: profile.id });
-      // كلها زياراته هو، فنلحق اسمه مباشرة بدون طلب إضافي (يُستخدم بعمود "منفّذ الزيارة" عند التصدير)
-      myVisits.forEach((v) => {
-        v.profiles = { full_name: profile.full_name, email: profile.email };
-      });
+      myVisits = visitRows;
 
       document.getElementById("visitTabsWrap").style.display = "block";
 

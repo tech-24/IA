@@ -41,21 +41,31 @@ async function fetchVisitAreas(toolId) {
 // جلب زيارات أداة معيّنة (مع اسم الحالة والنطاق)، الأحدث أولًا
 // mineOnly = true يرجّع زيارات المستخدم الحالي بس (تُستخدم تلقائيًا عبر RLS للمفتش،
 // لكن نمررها صراحة عشان واجهة "زياراتي" تتصرف صح حتى لو فتحها مشرف بوضع المفتش)
+// from / to: حدود الفترة "YYYY-MM-DD" بتوقيت الجهاز (نفس حدود يوم القائمة)، اختيارية — بدونهما تُجلب كل الزيارات
+// الجلب بالدفعات (fetchAllRows): الطلب الواحد ما يرجّع أكثر من 1000 صف، فنكمل الدفعات لين تخلص كلها
+// بدل ما تنقطع الزيارات الأقدم بصمت. onProgress(loaded, total): اختياري لعرض التقدّم
 //
 // ملاحظة: ما نجلب اسم المفتش عبر ربط PostgREST المباشر (visits.inspector_id تشير
 // إلى auth.users لا إلى profiles)، فنجلبه بطلب منفصل (fetchProfilesByIds) ونلحقه
 // يدويًا — أضمن ولا يعتمد على وجود مفتاح خارجي مباشر بين الجدولين
-async function fetchVisits(toolId, { mineOnly, myId } = {}) {
-  let query = supabaseClient
-    .from("visits")
-    .select("*, visit_statuses(name), visit_areas(name)")
-    .eq("tool_id", toolId)
-    .order("visited_at", { ascending: false });
+function visitsDayBoundIso(ymd, plusDays) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, m - 1, d + plusDays).toISOString();
+}
 
-  if (mineOnly && myId) query = query.eq("inspector_id", myId);
-
-  const { data, error } = await query;
-  if (error) throw error;
+async function fetchVisits(toolId, { mineOnly, myId, from, to, onProgress } = {}) {
+  const buildQuery = () => {
+    let query = supabaseClient
+      .from("visits")
+      .select("*, visit_statuses(name), visit_areas(name)", { count: "exact" })
+      .eq("tool_id", toolId);
+    if (mineOnly && myId) query = query.eq("inspector_id", myId);
+    if (from) query = query.gte("visited_at", visitsDayBoundIso(from, 0));
+    if (to) query = query.lt("visited_at", visitsDayBoundIso(to, 1)); // نهاية يوم "to" (بداية اليوم اللي بعده)
+    // الترتيب الثانوي بالمعرّف يثبّت موضع الصفوف اللي لها نفس الوقت بين الدفعات
+    return query.order("visited_at", { ascending: false }).order("id", { ascending: false });
+  };
+  const data = await fetchAllRows(buildQuery, { onProgress });
 
   if (!mineOnly && data.length > 0) {
     // "كل الزيارات" (المشرف) يحتاج اسم المفتش لكل زيارة — نجلب الملفات المطلوبة دفعة وحدة
@@ -66,6 +76,20 @@ async function fetchVisits(toolId, { mineOnly, myId } = {}) {
     });
   }
   return data;
+}
+
+// مصدر اقتراحات "الحي" و"المجمع / الشارع" بنموذج التسجيل: آخر زيارات المفتش (أعمدة قليلة فقط)
+// مستقل عن الفترة المعروضة بالقائمة، عشان الاقتراحات تبقى كاملة حتى أول الشهر
+async function fetchVisitSuggestionSource(toolId, myId, limit = 300) {
+  const { data, error } = await supabaseClient
+    .from("visits")
+    .select("id, area_id, neighborhood, street, visited_at")
+    .eq("tool_id", toolId)
+    .eq("inspector_id", myId)
+    .order("visited_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
 }
 
 // كم يوم مضى على آخر زيارة لهذه الرخصة بنفس الأداة (من زيارات كل المفتشين)؟
@@ -179,6 +203,30 @@ async function getVisitPhotoSignedUrl(path) {
     .createSignedUrl(path, 3600);
   if (error) return null; // لا نكسر عرض الزيارة كاملة بسبب فشل رابط صورة وحدة
   return data.signedUrl;
+}
+
+// روابط مؤقتة لعدة صور بطلب واحد (بدل طلب لكل صورة) — تُستخدم بالتصدير
+// ترجع Map من المسار إلى الرابط. المسار اللي ما انجلب رابطه ببساطة ما يدخل الـ Map
+// (والمستدعي يرجع لـ getVisitPhotoSignedUrl لتلك الصورة وحدها)
+async function getVisitPhotoSignedUrls(paths) {
+  const result = new Map();
+  const unique = [...new Set((paths || []).filter(Boolean))];
+  const CHUNK = 500; // طلب واحد لكل 500 مسار، حتى ما يكبر الطلب بلا داعي
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const chunk = unique.slice(i, i + CHUNK);
+    try {
+      const { data, error } = await supabaseClient.storage
+        .from(VISIT_PHOTOS_BUCKET)
+        .createSignedUrls(chunk, 3600);
+      if (error || !Array.isArray(data)) continue;
+      data.forEach((d) => {
+        if (d && d.path && d.signedUrl && !d.error) result.set(d.path, d.signedUrl);
+      });
+    } catch (e) {
+      // نكمل: الصور الناقصة تُجلب فرديًا بالاحتياط
+    }
+  }
+  return result;
 }
 
 // -------------------------------------------------

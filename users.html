@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.json" />
   <title>إدارة المستخدمين</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="preconnect" href="https://twbatrsenepuaylyiqsq.supabase.co" />
@@ -51,7 +51,7 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=2"></script>
   <script src="users.js"></script>
   <script>
     let allProfiles = [];
@@ -206,7 +206,16 @@
     document.getElementById("userSearchInput").addEventListener("input", renderUsers);
 
     async function loadUsers() {
-      allProfiles = await fetchAllProfiles();
+      const list = document.getElementById("usersList");
+      const sk = startSkeleton(list, "rows", 6);
+      try {
+        allProfiles = await fetchAllProfiles();
+      } catch (e) {
+        sk.stop();
+        showLoadError(list);
+        return;
+      }
+      sk.stop();
       renderUsers();
     }
 

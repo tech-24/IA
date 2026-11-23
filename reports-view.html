@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.json" />
   <title>المحاضر</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="preconnect" href="https://twbatrsenepuaylyiqsq.supabase.co" />
@@ -98,6 +98,8 @@
       <p style="color:#b91c1c;font-size:14px;margin-bottom:10px">أضف اسمك الثلاثي أولاً قبل تسجيل المحاضر.</p>
       <a href="account.html" style="display:inline-block"><button type="button">فتح صفحة حسابي</button></a>
     </div>
+
+    <div id="pageSkeleton"></div>
 
     <div id="reportsWrap" style="display:none">
 
@@ -235,9 +237,9 @@
   </nav>
 
   <script src="config.js"></script>
-  <script src="auth.js"></script>
+  <script src="auth.js?v=2"></script>
   <script src="tools.js"></script>
-  <script src="reports.js?v=2"></script>
+  <script src="reports.js?v=3"></script>
   <script src="report-pdf.js?v=3"></script>
   <script src="date-range-picker.js"></script>
   <script>
@@ -903,7 +905,22 @@
         return;
       }
 
-      const tools = await fetchTools();
+      // الأداة والمحاضر مستقلان عن بعض: نجلبهما بنفس الوقت (والمحاضر فقط لو الاسم الثلاثي موجود)
+      const pageSk = startSkeleton(document.getElementById("pageSkeleton"), "rows", 6);
+      let tools;
+      try {
+        if (!profile.full_name) {
+          tools = await fetchTools();
+        } else {
+          [tools, allReports] = await Promise.all([fetchTools(), fetchReports(toolId)]);
+        }
+      } catch (e) {
+        pageSk.stop();
+        showLoadError(document.getElementById("pageSkeleton"));
+        return;
+      }
+      pageSk.stop();
+
       const tool = tools.find((t) => t.id === toolId);
       document.getElementById("toolTitle").textContent = tool ? tool.name : "المحاضر";
 
@@ -923,7 +940,6 @@
         document.getElementById("inspectorBtn").style.display = "flex";
       }
 
-      allReports = await fetchReports(toolId);
       refreshInspectorOptions();
 
       document.getElementById("reportsWrap").style.display = "block";

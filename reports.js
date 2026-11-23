@@ -28,14 +28,17 @@ const REPORT_LIST_COLUMNS = "id, tool_id, inspector_id, report_type, occurred_at
 // جلب محاضر أداة معيّنة، الأحدث أولًا
 // المفتش يرى محاضره فقط، والمشرف/المالك يرى الكل (تحكمه صلاحيات RLS بالقاعدة)
 // -------------------------------------------------
+// الجلب بالدفعات (fetchAllRows من auth.js): الطلب الواحد ما يرجّع أكثر من 1000 صف، فنكمل الدفعات
+// لين تخلص كلها بدل ما تنقطع المحاضر الأقدم بصمت
 async function fetchReports(toolId) {
-  const { data, error } = await supabaseClient
-    .from("reports")
-    .select(REPORT_LIST_COLUMNS)
-    .eq("tool_id", toolId)
-    .order("occurred_at", { ascending: false });
-  if (error) throw error;
-  return data;
+  return fetchAllRows(() =>
+    supabaseClient
+      .from("reports")
+      .select(REPORT_LIST_COLUMNS, { count: "exact" })
+      .eq("tool_id", toolId)
+      .order("occurred_at", { ascending: false })
+      .order("id", { ascending: false })
+  );
 }
 
 // جلب محضر كامل بتواقيعه (لعرضه وتصديره)

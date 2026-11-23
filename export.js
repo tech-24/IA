@@ -44,6 +44,50 @@ async function fetchImageBuffer(path) {
   }
 }
 
+// تنزيل صورة من رابطها مع إعادة محاولة واحدة (التنزيل المتوازي على نت ضعيف يفشل أحيانًا)
+async function downloadImageBuffer(url) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return await res.arrayBuffer();
+    } catch (e) {
+      // نعيد المحاولة مرة وحدة
+    }
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 400));
+  }
+  return null;
+}
+
+// -------------------------------------------------
+// تنزيل صور كثيرة بسرعة: الروابط المؤقتة تُجلب بطلب واحد، ثم تنزل الصور بالتوازي (6 بنفس الوقت)
+// بدل طلب رابط وتنزيل لكل صورة واحدة ورا الثانية. الصور نفسها بحجمها المحفوظ بدون أي تصغير
+// ترجع Map من المسار إلى ArrayBuffer (أو null لو تعذّر تنزيلها)
+// onEach: يُستدعى بعد انتهاء كل صورة (لشريط التقدّم)
+// -------------------------------------------------
+async function fetchImageBuffersParallel(paths, onEach, concurrency = 6) {
+  const unique = [...new Set((paths || []).filter(Boolean))];
+  const out = new Map();
+  if (unique.length === 0) return out;
+
+  // لو الدالة الجماعية غير موجودة (نسخة قديمة مخزّنة من visits.js) نرجع للطريقة الفردية لكل صورة
+  const urls = typeof getVisitPhotoSignedUrls === "function" ? await getVisitPhotoSignedUrls(unique) : new Map();
+
+  let next = 0;
+  async function worker() {
+    for (;;) {
+      const i = next++;
+      if (i >= unique.length) return;
+      const path = unique[i];
+      let url = urls.get(path);
+      if (!url) url = await getVisitPhotoSignedUrl(path); // احتياط لصورة ما انجلب رابطها بالدفعة
+      out.set(path, url ? await downloadImageBuffer(url) : null);
+      if (onEach) onEach();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, unique.length) }, worker));
+  return out;
+}
+
 // -------------------------------------------------
 // تثبيت الصورة داخل الخلية: تتحرك وتتغير مع الصف (وتختفي عند إخفائه بالفلتر)
 // تُحسب أبعادها من أبعاد الصورة الفعلية لتبقى النسبة سليمة وتتوسّط الخلية.
@@ -197,10 +241,26 @@ async function exportVisitsToExcel(tool, visits, statuses, areas, photoOptions, 
   if (withEstPhotos) AREA_COLUMNS.push({ header: "صورة المنشأة", width: PHOTO_COL_WIDTH });
   if (withLicPhotos) AREA_COLUMNS.push({ header: "صورة الرخصة", width: PHOTO_COL_WIDTH });
 
+  // الصور تُنزَّل كلها أول بسرعة (روابط بطلب واحد + تنزيل متوازي)، ثم تُدمج بالصفوف أدناه
+  // نحسب فقط صور الزيارات اللي فعلًا بتنكتب بالملف (زيارات النطاقات المعروفة)
   let doneCount = 0;
-  const totalPhotos =
-    (withEstPhotos ? visits.filter((v) => v.establishment_photo_path).length : 0) +
-    (withLicPhotos ? visits.filter((v) => v.license_photo_path).length : 0);
+  const photoPaths = [];
+  if (includePhotos) {
+    areas.forEach((area) => {
+      (visitsByArea.get(area.id) || []).forEach((v) => {
+        if (withEstPhotos && v.establishment_photo_path) photoPaths.push(v.establishment_photo_path);
+        if (withLicPhotos && v.license_photo_path) photoPaths.push(v.license_photo_path);
+      });
+    });
+  }
+  const totalPhotos = photoPaths.length;
+  if (onProgress && includePhotos) onProgress(0, totalPhotos);
+  const photoBuffers = includePhotos
+    ? await fetchImageBuffersParallel(photoPaths, () => {
+        doneCount++;
+        if (onProgress) onProgress(doneCount, totalPhotos);
+      })
+    : new Map();
 
   for (const area of areas) {
     const areaVisits = (visitsByArea.get(area.id) || []).slice().sort((a, b) => new Date(a.visited_at) - new Date(b.visited_at));
@@ -255,22 +315,18 @@ async function exportVisitsToExcel(tool, visits, statuses, areas, photoOptions, 
 
       // صورة المنشأة: تُدمج في الإكسل (تظهر مصغّرة بالخلية والصورة الأصلية محفوظة داخل الملف)
       if (withEstPhotos && v.establishment_photo_path) {
-        const buffer = await fetchImageBuffer(v.establishment_photo_path);
+        const buffer = photoBuffers.get(v.establishment_photo_path);
         if (buffer) {
           placeImageInCell(workbook, sheet, buffer, estPhotoCol, row.number - 1);
         }
-        doneCount++;
-        if (onProgress) onProgress(doneCount, totalPhotos);
       }
 
       // صورة الرخصة: نفس الفكرة
       if (withLicPhotos && v.license_photo_path) {
-        const buffer = await fetchImageBuffer(v.license_photo_path);
+        const buffer = photoBuffers.get(v.license_photo_path);
         if (buffer) {
           placeImageInCell(workbook, sheet, buffer, licPhotoCol, row.number - 1);
         }
-        doneCount++;
-        if (onProgress) onProgress(doneCount, totalPhotos);
       }
     }
 

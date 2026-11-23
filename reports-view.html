@@ -432,7 +432,7 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "type-card";
-        btn.innerHTML = `<span>${escapeHtml(t.name)}</span><span style="color:var(--text-muted)">◀</span>`;
+        btn.innerHTML = `<span>${escapeHtml(t.name)}</span><span style="color:var(--text-muted)">${monthChevron(false)}</span>`;
         btn.addEventListener("click", () => openForm(t.key));
         list.appendChild(btn);
       });
@@ -561,6 +561,18 @@
       });
     }
 
+    // سهم عنوان الشهر: رسمة SVG بدل الرموز النصية (◀ تتحول لإيموجي بالآيفون). مفتوح = للأسفل، مقفول = لليسار
+    function monthChevron(isOpen) {
+      return `<svg class="month-chev${isOpen ? "" : " closed"}" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+    }
+
+    // أي تغيير بالبحث أو الفلاتر أو الفترة يرجّع الفتح التلقائي لأحدث شهر (قفل الشهور اليدوي يخص القائمة الحالية فقط)
+    let monthsUserClosedAll = false;
+    function renderMonthsFresh() {
+      monthsUserClosedAll = false;
+      renderMonths();
+    }
+
     function renderMonths() {
       const filtered = getFilteredReports();
       const groups = {};
@@ -570,7 +582,8 @@
         groups[key].push(r);
       });
       const sortedKeys = Object.keys(groups).sort().reverse();
-      if (sortedKeys.length > 0 && openMonths.size === 0) openMonths.add(sortedKeys[0]); // الشهر الأحدث مفتوح افتراضيًا
+      // أحدث شهر يُفتح تلقائيًا إذا ما فيه شهر مفتوح ظاهر، إلا لو المستخدم قفل كل الشهور بنفسه
+      if (sortedKeys.length > 0 && !monthsUserClosedAll && !sortedKeys.some((k) => openMonths.has(k))) openMonths.add(sortedKeys[0]);
 
       const wrap = document.getElementById("monthsList");
       wrap.innerHTML = "";
@@ -589,10 +602,11 @@
         const header = document.createElement("button");
         header.type = "button";
         header.className = "month-header";
-        header.innerHTML = `<span>${isOpen ? "▼" : "◀"} ${monthLabel(items[0].occurred_at)}</span><span class="month-count">${items.length} محضر</span>`;
+        header.innerHTML = `<span>${monthChevron(isOpen)} ${monthLabel(items[0].occurred_at)}</span><span class="month-count">${items.length} محضر</span>`;
         header.addEventListener("click", () => {
           if (openMonths.has(key)) openMonths.delete(key);
           else openMonths.add(key);
+          monthsUserClosedAll = !sortedKeys.some((k) => openMonths.has(k)); // قفل آخر شهر مفتوح: يبقى كل شيء مقفلًا
           renderMonths();
         });
         section.appendChild(header);
@@ -622,12 +636,12 @@
       });
     }
 
-    document.getElementById("reportSearchInput").addEventListener("input", renderMonths);
-    document.getElementById("filterType").addEventListener("change", renderMonths);
-    document.getElementById("filterInspector").addEventListener("change", renderMonths);
+    document.getElementById("reportSearchInput").addEventListener("input", renderMonthsFresh);
+    document.getElementById("filterType").addEventListener("change", renderMonthsFresh);
+    document.getElementById("filterInspector").addEventListener("change", renderMonthsFresh);
     createDateRangePicker(document.getElementById("periodBtn"), periodState, (state) => {
       periodState = state;
-      renderMonths();
+      renderMonthsFresh();
     });
 
     // فلتر المراقب (للمشرف والمالك): نافذة فيها خانة بحث — يُعبّأ من المراقبين الذين لهم محاضر

@@ -1178,7 +1178,7 @@
       sk.stop();
       if (seq !== visitsLoadSeq) return;
       myVisits = rows;
-      renderMonths();
+      renderMonthsFresh();
     }
 
     function getFilteredVisits() {
@@ -1205,6 +1205,18 @@
       });
     }
 
+    // سهم عنوان الشهر: رسمة SVG بدل الرموز النصية (◀ تتحول لإيموجي بالآيفون). مفتوح = للأسفل، مقفول = لليسار
+    function monthChevron(isOpen) {
+      return `<svg class="month-chev${isOpen ? "" : " closed"}" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+    }
+
+    // أي تغيير بالبحث أو الفلاتر أو الفترة يرجّع الفتح التلقائي لأحدث شهر (قفل الشهور اليدوي يخص القائمة الحالية فقط)
+    let monthsUserClosedAll = false;
+    function renderMonthsFresh() {
+      monthsUserClosedAll = false;
+      renderMonths();
+    }
+
     function renderMonths() {
       fillNeighborhoodFilter(document.getElementById("filterNeighborhood"), myVisits); // الأحياء الموجودة بزياراتي (تتحدث بعد الإضافة والتعديل والحذف)
       const filtered = getFilteredVisits();
@@ -1216,7 +1228,8 @@
       });
       const sortedKeys = Object.keys(groups).sort().reverse();
 
-      if (sortedKeys.length > 0 && openMonths.size === 0) openMonths.add(sortedKeys[0]); // الشهر الحالي/الأحدث مفتوح افتراضيًا
+      // أحدث شهر يُفتح تلقائيًا إذا ما فيه شهر مفتوح ظاهر، إلا لو المستخدم قفل كل الشهور بنفسه
+      if (sortedKeys.length > 0 && !monthsUserClosedAll && !sortedKeys.some((k) => openMonths.has(k))) openMonths.add(sortedKeys[0]);
 
       const wrap = document.getElementById("monthsList");
       wrap.innerHTML = "";
@@ -1235,10 +1248,11 @@
         const header = document.createElement("button");
         header.type = "button";
         header.className = "month-header";
-        header.innerHTML = `<span>${isOpen ? "▼" : "◀"} ${monthLabel(items[0].visited_at)}</span><span class="month-count">${items.length} زيارة</span>`;
+        header.innerHTML = `<span>${monthChevron(isOpen)} ${monthLabel(items[0].visited_at)}</span><span class="month-count">${items.length} زيارة</span>`;
         header.addEventListener("click", () => {
           if (openMonths.has(key)) openMonths.delete(key);
           else openMonths.add(key);
+          monthsUserClosedAll = !sortedKeys.some((k) => openMonths.has(k)); // قفل آخر شهر مفتوح: يبقى كل شيء مقفلًا
           renderMonths();
         });
         section.appendChild(header);
@@ -1265,10 +1279,10 @@
       });
     }
 
-    document.getElementById("visitSearchInput").addEventListener("input", renderMonths);
-    document.getElementById("filterArea").addEventListener("change", renderMonths);
-    document.getElementById("filterStatus").addEventListener("change", renderMonths);
-    document.getElementById("filterNeighborhood").addEventListener("change", renderMonths);
+    document.getElementById("visitSearchInput").addEventListener("input", renderMonthsFresh);
+    document.getElementById("filterArea").addEventListener("change", renderMonthsFresh);
+    document.getElementById("filterStatus").addEventListener("change", renderMonthsFresh);
+    document.getElementById("filterNeighborhood").addEventListener("change", renderMonthsFresh);
     createDateRangePicker(document.getElementById("periodBtn"), periodState, (state) => {
       periodState = state;
       reloadVisitsForPeriod();

@@ -1083,6 +1083,9 @@ button.secondary:hover { background: rgba(255, 255, 255, 0.25); box-shadow: none
   cursor: pointer;
 }
 .month-count { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+/* سهم عنوان الشهر / بطاقات الاختيار: مفتوح للأسفل، مقفول لليسار */
+.month-chev { display: inline-block; vertical-align: -2px; margin-inline-end: 2px; flex-shrink: 0; }
+.month-chev.closed { transform: rotate(90deg); }
 .month-items { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 
 .visit-row {

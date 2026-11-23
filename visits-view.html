@@ -74,7 +74,10 @@
       <div id="registerTab">
         <div class="field">
           <label for="visitEstablishment">اسم المنشأة</label>
-          <input type="text" id="visitEstablishment" />
+          <div class="suggest-wrap">
+            <input type="text" id="visitEstablishment" autocomplete="off" />
+            <div class="suggest-list" id="establishmentSuggest" role="listbox" style="display:none"></div>
+          </div>
         </div>
         <div class="field">
           <label for="visitLicense">رقم الرخصة</label>
@@ -227,7 +230,7 @@
   <script src="auth.js?v=2"></script>
   <script src="image-utils.js"></script>
   <script src="tools.js"></script>
-  <script src="visits.js?v=3"></script>
+  <script src="visits.js?v=4"></script>
   <script src="date-range-picker.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
@@ -589,6 +592,8 @@
     let lastVisitDateSource = "";      // "" فاضي | "auto" عبّاه النظام | "manual" كتبه المفتش | "saved" جاي من زيارة محفوظة
     let lastVisitDateCleared = false;  // المفتش مسح الحقل بنفسه: لا نعبّيه ثانية في هذي الزيارة
     let licenseHintDays = null;        // عدد الأيام لآخر زيارة للرخصة الحالية (null = ما فيه زيارة سابقة أو ما انحسب بعد)
+    let licensePrev = null;            // بيانات الرخصة المسجلة سابقًا { name, neighborhood, street } للاقتراحات (null = لا يوجد)
+    const suggestRefreshers = [];      // دوال تحدّث قائمة الاقتراحات المفتوحة لو وصلت بيانات الرخصة بعد فتحها
 
     function dateDaysAgo(days) {
       const p = {};
@@ -633,7 +638,8 @@
     // -------------------------------------------------
     // سطر "آخر زيارة كانت قبل N يوم" تحت رقم الرخصة
     // يحسب من زيارات كل المفتشين على نفس الرخصة بنفس الأداة (دالة القاعدة last_visit_days_ago)،
-    // وأي فشل (مثلًا الدالة ما انضافت بعد، أو ما فيه نت) يخفي السطر بصمت بدون أي رسالة خطأ
+    // وأي فشل (مثلًا الدالة ما انضافت بعد، أو ما فيه نت) يخفي السطر بصمت بدون أي رسالة خطأ.
+    // وبالتوازي معه نجيب بيانات الرخصة من زيارات المفتش نفسه فقط (اسم المنشأة والحي والشارع) لاقتراحات الخانات
     // -------------------------------------------------
     const licenseInput = document.getElementById("visitLicense");
     const licenseLastVisitEl = document.getElementById("licenseLastVisit");
@@ -644,26 +650,37 @@
       clearTimeout(licenseHintTimer);
       licenseHintSeq++;
       licenseHintDays = null;
+      licensePrev = null;
       licenseLastVisitEl.style.display = "none";
       licenseLastVisitEl.textContent = "";
     }
 
+    // الطلبان (آخر زيارة + بيانات الرخصة) يمشون مع بعض ومستقلين: فشل أحدهما ما يلغي الثاني
     async function refreshLicenseLastVisit() {
       const license = licenseInput.value.trim();
       if (!license) { hideLicenseLastVisit(); return; }
       const seq = ++licenseHintSeq;
-      try {
-        // عند تعديل زيارة نستثنيها هي نفسها من الحساب
-        const days = await fetchLastVisitDaysAgo(toolId, license, editingVisitId);
-        if (seq !== licenseHintSeq) return;
-        if (days === null) { hideLicenseLastVisit(); return; }
+      // عند تعديل زيارة نستثنيها هي نفسها من الحساب
+      const [daysRes, prevRes] = await Promise.allSettled([
+        fetchLastVisitDaysAgo(toolId, license, editingVisitId),
+        fetchLicensePreviousInfo(toolId, license, myProfile ? myProfile.id : null, editingVisitId),
+      ]);
+      if (seq !== licenseHintSeq) return;
+
+      const days = daysRes.status === "fulfilled" ? daysRes.value : null;
+      if (days === null) {
+        licenseHintDays = null;
+        licenseLastVisitEl.style.display = "none";
+        licenseLastVisitEl.textContent = "";
+      } else {
         licenseHintDays = days;
         licenseLastVisitEl.textContent = days === 0 ? "آخر زيارة كانت اليوم" : "آخر زيارة كانت قبل " + days + " يوم";
         licenseLastVisitEl.style.display = "block";
         maybeAutofillLastVisitDate();
-      } catch (e) {
-        if (seq === licenseHintSeq) hideLicenseLastVisit();
       }
+
+      licensePrev = prevRes.status === "fulfilled" ? prevRes.value : null;
+      suggestRefreshers.forEach((fn) => fn()); // لو قائمة اقتراحات مفتوحة الحين تتحدّث
     }
 
     licenseInput.addEventListener("input", () => {
@@ -752,7 +769,23 @@
       else suggestionVisits[i] = light;
     }
 
+    // الاسم: اقتراح واحد فقط وهو الاسم المسجل سابقًا بنفس الرخصة (ما فيه سجل للأسماء بغيرها)
+    // الحي والشارع: قيمة الرخصة أولًا ثم الباقي كالمعتاد
+    function licenseSuggestion(field) {
+      if (!licensePrev) return null;
+      const text = suggestClean(field === "name" ? licensePrev.name : field === "street" ? licensePrev.street : licensePrev.neighborhood);
+      return text ? { text, time: Infinity, preferred: false, license: true } : null;
+    }
+
     function collectSuggestions(field) {
+      const lic = licenseSuggestion(field);
+      if (field === "name") return lic ? [lic] : [];
+      const rest = collectHistorySuggestions(field);
+      if (!lic) return rest;
+      return [lic, ...rest.filter((it) => suggestKey(it.text) !== suggestKey(lic.text))];
+    }
+
+    function collectHistorySuggestions(field) {
       const areaId = document.getElementById("visitArea").value;
       const hoodKey = field === "street" ? suggestKey(document.getElementById("visitNeighborhood").value) : "";
       const items = new Map(); // المفتاح -> { text, time, preferred }
@@ -808,16 +841,20 @@
         if (shown.length === 0) { hide(); return; }
 
         list.innerHTML = "";
-        const grouped = shown.some((it) => it.preferred) && shown.some((it) => !it.preferred);
+        const groupOf = (it) => (it.license ? "license" : it.preferred ? "preferred" : "other");
+        const groups = new Set(shown.map(groupOf));
+        // العناوين: دائمًا مع اقتراح الرخصة (عشان المفتش يعرف مصدره)، وغير ذلك فقط لو فيه مجموعتان
+        const grouped = groups.has("license") || (groups.has("preferred") && groups.has("other"));
+        const HEADS = { license: "مسجل سابقًا بهذه الرخصة", preferred: "في هذا الحي", other: "أخرى في النطاق" };
         let lastGroup = null;
         shown.forEach((it) => {
-          if (grouped && it.preferred !== lastGroup) {
+          if (grouped && groupOf(it) !== lastGroup) {
             const head = document.createElement("div");
             head.className = "suggest-head";
-            head.textContent = it.preferred ? "في هذا الحي" : "أخرى في النطاق";
+            head.textContent = HEADS[groupOf(it)];
             list.appendChild(head);
           }
-          lastGroup = it.preferred;
+          lastGroup = groupOf(it);
           const row = document.createElement("div");
           row.className = "suggest-item";
           row.setAttribute("role", "option");
@@ -836,6 +873,8 @@
       input.addEventListener("input", show);
       input.addEventListener("blur", hide);
       input.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+      // وصلت بيانات الرخصة والخانة مفتوحة: نحدّث قائمتها
+      suggestRefreshers.push(() => { if (document.activeElement === input) show(); });
       const reposition = () => { if (isOpen()) place(); };
       window.addEventListener("resize", reposition);
       if (window.visualViewport) {
@@ -843,6 +882,7 @@
         window.visualViewport.addEventListener("scroll", reposition);
       }
     }
+    setupSuggest("visitEstablishment", "establishmentSuggest", "name");
     setupSuggest("visitNeighborhood", "neighborhoodSuggest", "neighborhood");
     setupSuggest("visitStreet", "streetSuggest", "street");
 

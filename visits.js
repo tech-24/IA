@@ -106,6 +106,53 @@ async function fetchLastVisitDaysAgo(toolId, license, excludeVisitId) {
   return data === null || data === undefined ? null : Number(data);
 }
 
+// صيغ الرقم المحتملة للبحث: رقم الرخصة ينحفظ كما كتبه المفتش (أرقام عربية أو إنجليزية، وقد يحوي مسافات)،
+// فنبحث عن الرقم نفسه بكل هذي الصيغ حتى لا تفوتنا رخصة مكتوبة بشكل مختلف
+function licenseVariants(license) {
+  const AR = "٠١٢٣٤٥٦٧٨٩";
+  const FA = "۰۱۲۳۴۵۶۷۸۹";
+  const raw = (license || "").toString().trim();
+  if (!raw) return [];
+  const toLatin = (s) => s.replace(/[٠-٩]/g, (c) => String(AR.indexOf(c))).replace(/[۰-۹]/g, (c) => String(FA.indexOf(c)));
+  const toArabic = (s) => s.replace(/[0-9]/g, (d) => AR[Number(d)]);
+  const squeezed = raw.replace(/\s+/g, " ");
+  const noSpace = raw.replace(/\s+/g, "");
+  const set = new Set([
+    raw, squeezed, noSpace,
+    toLatin(raw), toLatin(squeezed), toLatin(noSpace),
+    toArabic(toLatin(squeezed)), toArabic(toLatin(noSpace)),
+  ]);
+  return [...set].filter(Boolean);
+}
+
+// بيانات هذه الرخصة المسجلة سابقًا في زيارات المفتش نفسه (myId) بنفس الأداة: اسم المنشأة والحي والشارع
+// من أحدث زيارة، وأي حقل فاضي فيها نكمله من الزيارات الأقدم. ترجع { name, neighborhood, street } (الفاضي = "")
+// أو null لو ما فيه سجل سابق. طلب مباشر على جدول visits (سياسة القراءة تسمح للمفتش بزياراته)، بدون دالة قاعدة.
+// excludeVisitId: زيارة نستثنيها (عند تعديلها)
+async function fetchLicensePreviousInfo(toolId, license, myId, excludeVisitId) {
+  const variants = licenseVariants(license);
+  if (!variants.length || !myId) return null;
+  let query = supabaseClient
+    .from("visits")
+    .select("establishment_name, neighborhood, street, visited_at")
+    .eq("tool_id", toolId)
+    .eq("inspector_id", myId)
+    .in("license_number", variants)
+    .order("visited_at", { ascending: false })
+    .limit(20);
+  if (excludeVisitId) query = query.neq("id", excludeVisitId);
+  const { data, error } = await query;
+  if (error) throw error;
+  const rows = data || [];
+  const clean = (x) => (x || "").toString().trim().replace(/\s+/g, " ");
+  const pick = (field) => {
+    for (const r of rows) { const t = clean(r[field]); if (t) return t; }
+    return "";
+  };
+  const info = { name: pick("establishment_name"), neighborhood: pick("neighborhood"), street: pick("street") };
+  return info.name || info.neighborhood || info.street ? info : null;
+}
+
 // جلب بيانات مجموعة مستخدمين بمعرّفاتهم (اسم ثلاثي + بريد) — طلب مباشر من profiles
 // بدون الاعتماد على أي ربط تلقائي، فيشتغل بغض النظر عن تفاصيل المفاتيح الخارجية
 async function fetchProfilesByIds(ids) {

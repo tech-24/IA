@@ -574,9 +574,55 @@
       const show = isIncompleteDurationStatus(document.getElementById("visitStatus").value);
       document.getElementById("lastVisitDateField").style.display = show ? "flex" : "none";
     }
-    document.getElementById("visitStatus").addEventListener("change", updateLastVisitDateVisibility);
+
+    // -------------------------------------------------
+    // تعبئة "تاريخ آخر زيارة" تلقائيًا عند تسجيل زيارة جديدة فقط (لا تُلمس الزيارات المحفوظة عند تعديلها)
+    // المصدر: نفس حساب سطر "آخر زيارة كانت قبل N يوم" (أحدث تاريخ بين "تمت الزيارة" و"لم تكتمل المدة" من كل المفتشين)
+    // التاريخ = اليوم (بتوقيت الرياض) ناقص عدد الأيام، فما يحتاج أي تغيير بقاعدة البيانات
+    // الشروط: الحالة "لم تكتمل المدة" + للرخصة زيارة سابقة + الحقل فاضي + المفتش ما مسحه ولا كتب فيه بنفسه
+    // -------------------------------------------------
+    let lastVisitDateSource = "";      // "" فاضي | "auto" عبّاه النظام | "manual" كتبه المفتش | "saved" جاي من زيارة محفوظة
+    let lastVisitDateCleared = false;  // المفتش مسح الحقل بنفسه: لا نعبّيه ثانية في هذي الزيارة
+    let licenseHintDays = null;        // عدد الأيام لآخر زيارة للرخصة الحالية (null = ما فيه زيارة سابقة أو ما انحسب بعد)
+
+    function dateDaysAgo(days) {
+      const p = {};
+      new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" })
+        .formatToParts(new Date())
+        .forEach((x) => { p[x.type] = x.value; });
+      return new Date(Date.UTC(+p.year, +p.month - 1, +p.day - days)).toISOString().slice(0, 10);
+    }
+
+    function maybeAutofillLastVisitDate() {
+      if (editingVisitId !== null) return; // تعديل زيارة محفوظة: ما نلمس تاريخها
+      if (licenseHintDays === null) return;
+      if (lastVisitDateCleared || lastVisitDateSource === "manual") return;
+      if (!isIncompleteDurationStatus(document.getElementById("visitStatus").value)) return;
+      const input = document.getElementById("lastVisitDateInput");
+      if (input.value) return;
+      input.value = dateDaysAgo(licenseHintDays);
+      lastVisitDateSource = "auto";
+    }
+
+    document.getElementById("visitStatus").addEventListener("change", () => {
+      updateLastVisitDateVisibility();
+      maybeAutofillLastVisitDate();
+    });
     document.getElementById("clearLastVisitDateBtn").addEventListener("click", () => {
       document.getElementById("lastVisitDateInput").value = "";
+      lastVisitDateSource = "";
+      lastVisitDateCleared = true;
+    });
+    // أي كتابة أو اختيار يدوي: يبقى كما كتبه المفتش. وإذا فرّغ الحقل بنفسه نعتبره مسحًا
+    ["input", "change"].forEach((ev) => {
+      document.getElementById("lastVisitDateInput").addEventListener(ev, (e) => {
+        if (e.target.value) {
+          lastVisitDateSource = "manual";
+        } else {
+          lastVisitDateSource = "";
+          lastVisitDateCleared = true;
+        }
+      });
     });
 
     // -------------------------------------------------
@@ -592,6 +638,7 @@
     function hideLicenseLastVisit() {
       clearTimeout(licenseHintTimer);
       licenseHintSeq++;
+      licenseHintDays = null;
       licenseLastVisitEl.style.display = "none";
       licenseLastVisitEl.textContent = "";
     }
@@ -605,8 +652,10 @@
         const days = await fetchLastVisitDaysAgo(toolId, license, editingVisitId);
         if (seq !== licenseHintSeq) return;
         if (days === null) { hideLicenseLastVisit(); return; }
+        licenseHintDays = days;
         licenseLastVisitEl.textContent = days === 0 ? "آخر زيارة كانت اليوم" : "آخر زيارة كانت قبل " + days + " يوم";
         licenseLastVisitEl.style.display = "block";
+        maybeAutofillLastVisitDate();
       } catch (e) {
         if (seq === licenseHintSeq) hideLicenseLastVisit();
       }
@@ -614,6 +663,11 @@
 
     licenseInput.addEventListener("input", () => {
       hideLicenseLastVisit(); // السطر القديم يخص رقمًا غير الحالي
+      // التاريخ اللي عبّاه النظام يخص الرخصة القديمة؛ نشيله ونعيد الحساب للرقم الجديد (اللي كتبه المفتش بيده ما ينلمس)
+      if (lastVisitDateSource === "auto") {
+        document.getElementById("lastVisitDateInput").value = "";
+        lastVisitDateSource = "";
+      }
       licenseHintTimer = setTimeout(refreshLicenseLastVisit, 500);
     });
 
@@ -787,6 +841,8 @@
       document.getElementById("visitStatus").value = statuses[0] ? statuses[0].id : "";
       document.getElementById("visitArea").value = areas[0] ? areas[0].id : "";
       document.getElementById("lastVisitDateInput").value = "";
+      lastVisitDateSource = "";
+      lastVisitDateCleared = false;
       updateLastVisitDateVisibility();
       document.getElementById("registerError").textContent = "";
       document.getElementById("registerSuccess").textContent = "";
@@ -823,6 +879,8 @@
       }
       document.getElementById("visitStatus").value = visit.status_id || "";
       document.getElementById("lastVisitDateInput").value = visit.last_visit_date || "";
+      lastVisitDateSource = visit.last_visit_date ? "saved" : "";
+      lastVisitDateCleared = false;
       updateLastVisitDateVisibility();
       document.getElementById("visitArea").value = visit.area_id || "";
       capturedLat = visit.latitude;
